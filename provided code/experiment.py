@@ -232,7 +232,7 @@ def run_experiment(args, overrides):
     
     server = args.server(args, np.array(clients, dtype=np.object), test_loader=global_test_loader)
     print("Now running the algorithm")
-    server.server_update()
+    server.test_server_update() ##important
     return server, clients
 
 
