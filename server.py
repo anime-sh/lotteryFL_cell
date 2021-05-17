@@ -77,8 +77,8 @@ class Server():
             self.model = self.aggr(models)
 
             eval_score = self.eval(self.model)
-            if kwargs["verbose"] == 1:
-                print(f"eval_score = {eval_score['Accuracy']}")
+            # if kwargs["verbose"] == 1:
+            #     print(f"eval_score = {eval_score['Accuracy']}")
 
     def download(
         self,

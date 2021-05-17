@@ -308,8 +308,8 @@ CIFAR10_experiments = {
                    eita_hat=0.5,
                    eita=0.5,
                    alpha=0.75,
-                   prune_threshold=0.5,
-                   report_verbose = True)
+                   prune_threshold=0.0125,
+                   report_verbose = False)
 }
 
 if __name__ == "__main__":
