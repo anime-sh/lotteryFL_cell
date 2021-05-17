@@ -6,3 +6,4 @@ from utils.util import prune_fixed_amount,fprune_fixed_amount,average_weights_ma
 from utils.globalpruner import GlobalPruner
 from utils.globalpruner import super_prune
 from utils.globalpruner import globalPrunerStructured
+from utils.run_experiments import run_experiments,run_experiment,log_experiment
