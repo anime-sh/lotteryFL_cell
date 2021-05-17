@@ -284,6 +284,7 @@ CIFAR10_experiments = {
         build_args(arch='cnn',
                    client=Client,
                    server=Server,
+                   dataset='mnist',
                    avg_logic='standalone',
                    num_clients=2,
                    comm_rounds=400,
