@@ -10,7 +10,7 @@ from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, 
 import numpy as np
 import torch.nn.utils.prune as prune
 from typing import List, Dict, Tuple
-
+import client
 
 class Server():
     """
@@ -21,7 +21,7 @@ class Server():
         self,
         configs,
         test_loader,
-        clients: List[Client] = [],
+        clients=[],
         comm_rounds=1,
         *args,
         **kwargs
@@ -82,7 +82,7 @@ class Server():
 
     def download(
         self,
-        clients: List[Client],
+        clients: List[client.Client],
         *args,
         **kwargs
     ):

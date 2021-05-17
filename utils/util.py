@@ -304,10 +304,7 @@ def create_model(dataset_name, model_type) -> torch.Module:
         exit()
 
 
-def train(round,
-          client_id,
-          epoch,
-          model,
+def train(model,
           train_loader,
           lr=0.001,
           verbose=True):
@@ -355,19 +352,16 @@ def train(round,
         average_scores[k] = [sum(v) / len(v)]
         score[k].append(sum(v) / len(v))
 
-    if verbose:
-        print(f"round={round}, client={client_id}, epoch= {epoch}: ")
-        print(tabulate(average_scores, headers='keys', tablefmt='github'))
+    # if verbose:
+        # print(f"round={round}, client={client_id}, epoch= {epoch}: ")
+        # print(tabulate(average_scores, headers='keys', tablefmt='github'))
 
     return score
 
 # train with freezing
 
 
-def ftrain(round,
-           client_id,
-           epoch,
-           model,
+def ftrain(model,
            train_loader,
            lr=0.001,
            verbose=True):
@@ -421,9 +415,9 @@ def ftrain(round,
         average_scores[k] = [sum(v) / len(v)]
         score[k].append(sum(v) / len(v))
 
-    if verbose:
-        print(f"round={round}, client={client_id}, epoch= {epoch}: ")
-        print(tabulate(average_scores, headers='keys', tablefmt='github'))
+    # if verbose:
+    #     print(f"round={round}, client={client_id}, epoch= {epoch}: ")
+    #     print(tabulate(average_scores, headers='keys', tablefmt='github'))
 
     return score
 
