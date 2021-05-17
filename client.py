@@ -24,10 +24,10 @@ class Client():
         self.args = args
         print("Creating model for client " + str(client_id))
         self.model = create_model(self.args.dataset, self.args.arch)
-        print("Copying model for client " + str(client_id))
-        self.init_model = copy_model(
-            self.model, self.args.dataset, self.args.arch)
-        print("Done Copying model for client " + str(client_id))
+        # print("Copying model for client " + str(client_id))
+        # self.init_model = copy_model(
+        #     self.model, self.args.dataset, self.args.arch)
+        # print("Done Copying model for client " + str(client_id))
         self.test_loader = test_loader
         self.train_loader = train_loader
         self.client_id = client_id
@@ -38,24 +38,27 @@ class Client():
         assert self.model, "Something went wrong and the model cannot be initialized"
         #######
 
-    def update(self, global_model, global_init_model, round_index) -> None:
+    def update(self, round_index) -> None:
         """
             Interface to Server
         """
+        self.elapsed_comm_rounds += 1
         num_pruned, num_params = get_prune_summary(self.model)
         cur_prune_rate = num_pruned / num_params
 
-        self.eval_score = self.eval(self.globalModel)
+        eval_score = self.eval(self.globalModel)
 
-        if self.eval_score["Accuracy"][0] > self.args.eita:
+        if eval_score["Accuracy"][0] > self.args.eita:
             prune_rate = min(cur_prune_rate + self.args.prune_step,
                              self.args.prune_percent)
-            self.prune(self.globalmodel, prune_rate)
+
             self.model = copy_model(self.global_initModel,
                                     self.args.dataset,
                                     self.args.arch,
                                     dict(self.globalModel.named_buffers()))
+            self.prune(self.model, prune_rate)
             self.args.eita = self.args.eita_hat
+
         else:
             self.args.eita *= self.args.alpha
             self.model = copy_model(self.globalModel,
@@ -63,38 +66,43 @@ class Client():
                                     self.args.arch)
 
         #-----------------------TRAINING LOOOP ------------------------#
-        train_score = self.train()
+        self.train(round_index)
+        self.eval_score = self.eval(self.model)
         self.save(self.model)
 
-    def train(self):
+    def train(self, round_index):
         """
             Train NN
         """
-        for i in range(self.args.client_epoch):
+        accuracies = []
+        losses = []
+
+        for epoch in range(self.args.client_epochs):
             train_log_path = f'./log/clients/client{self.client_id}'\
                              f'/round{self.elapsed_comm_rounds}/'
-            # print(f'Epoch {i+1}')
+            if self.args.train_verbosity:
+                print(f"Client={self.client_id}, epoch={epoch}")
             train_score = ftrain(self.model,
-                                self.train_load,
-                                
-                  verbose=self.ar
+                                 self.train_load,
+                                 self.lr,
+                                 self.args.train_verbosity)
+            losses.append(train_score['Loss'][-1].data.item())
             accuracies.append(train_score['Accuracy'][-1])
-            epoch_path = train_log_path + f'client_model_epoch{i}.torch'
+            epoch_path = train_log_path + f'client_model_epoch{epoch}.torch'
             epoch_score_path = train_log_path + \
-                f'client_train_score_epoch{i}.pickle'
+                f'client_train_score_epoch{epoch}.pickle'
             log_obj(epoch_path, self.model)
-
-            if self.args.verboses:
-                print(f"Client={client_id},Epoch= {epoch}")
-                print(tabulate(average_scores, headers='keys', tablefmt='github'))            log_obj(epoch_score_path, train_score)
-
-        pass
+            log_obj(epoch_score_path, train_score)
+    
+        self.losses[round_index:] = np.array(losses)
+        self.accuracies[round_index:] = np.array(accuracies)
 
     def prune(self, model, prune_rate, *args, **kwargs):
         """
             Prune self.model
         """
-        pass
+        fprune_fixed_amount(model, prune_rate,  # prune_step,
+                            verbose=self.args.prune_verbosity)
 
     def download(self, globalModel, global_initModel, *args, **kwargs):
         """
@@ -103,38 +111,37 @@ class Client():
         self.globalModel = globalModel
         self.global_initModel = global_initModel
 
-    def eval(self, *args, **kwargss):
+    def eval(self, model, test_loader):
         """
             Eval self.model
         """
-        eval_flag = 0
-        eval_score = fevaluate(self.model,
-                         self.test_loader,
-                         verbose=self.args.test_verbosity)
-        fprune_fixed_amount(self.model,
-                               0,  # prune_step,
-                               verbose=self.args.prune_verbosity)
-
-        eval_log_path = f'./log/clients/client{self.client_id}/'\
-                        f'round{self.elapsed_comm_rounds}/'\
-                        f'eval_score_round{self.elapsed_comm_rounds}.pickle'
-        log_obj(eval_log_path, eval_score)
+        eval_score = fevaluate(model,
+                               self.test_loader,
+                               verbose=self.args.test_verbosity)
+        if self.args.test_verbosity:
+            eval_log_path = f'./log/clients/client{self.client_id}/'\
+                            f'round{self.elapsed_comm_rounds}/'\
+                            f'eval_score_round{self.elapsed_comm_rounds}.pickle'
+            log_obj(eval_log_path, eval_score)
         return eval_score
 
     def save(self, *args, **kwargs):
         """
             Save model,meta-info,states
         """
-        pass
+        eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
+        eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
+        if self.args.verbose:
+            log_obj(eval_log_path1,self.model)
+            log_obj(eval_log_path2,self.__dict__)
 
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """
             Upload self.model
         """
-        return {"model": copy_model(self.model,
-                                    self.args.dataset,
-                                    self.args.dataset),
-                                    self.configs.dataset,
-                                    self.configs.dataset),
-                "acc": self.eval_score["Accuracy"]
-                }
+        return {
+            "model": copy_model(self.model,
+                                self.args.dataset,
+                                self.args.arch),
+            "acc": self.eval_score["Accuracy"]
+        }

@@ -19,20 +19,18 @@ class Server():
 
     def __init__(
         self,
-        configs,
+        args,
         test_loader,
         clients=[],
         comm_rounds=1,
-        *args,
-        **kwargs
     ):
         super().__init__()
         self.clients = np.array(clients, dtype='object')
         self.num_clients = len(self.clients)
-        self.configs = configs
+        self.args = args
         self.test_loader = test_loader
-        self.init_model = create_model(configs.dataset, configs.arch)
-        self.model = copy_model(self.init_model, configs.dataset, configs.arch)
+        self.init_model = create_model(args.dataset, args.arch)
+        self.model = copy_model(self.init_model, args.dataset, args.arch)
 
     def aggr(
         self,
@@ -41,8 +39,8 @@ class Server():
         **kwargs
     ):
         return average_weights_masks(models=models,
-                                     dataset=self.configs.dataset,
-                                     arch=self.configs.arch,
+                                     dataset=self.args.dataset,
+                                     arch=self.args.arch,
                                      data_nums=self.num_clients)
         pass
 
@@ -67,11 +65,11 @@ class Server():
             self.upload(self.model)
             #-------------------------------------------------#
             clients_idx = np.random.choice(
-                self.num_clients, self.configs.frac * self.num_clients)
+                self.num_clients, self.args.frac * self.num_clients)
             clients = self.clients[clients_idx]
             #-------------------------------------------------#
             for client in clients():
-                client.update()
+                client.update(self.comm_rounds)
             #-------------------------------------------------#
             models, accs = self.download(clients)
             self.model = self.aggr(models)
@@ -104,7 +102,7 @@ class Server():
         super_prune(model=model,
                     init_model=self.init_model,
                     name="weight",
-                    threshold=self.configs.threshold,
+                    threshold=self.args.threshold,
                     verbose=True)
 
     def eval(
@@ -143,7 +141,7 @@ class Server():
         # TODO: parallelize upload to clients (broadcasting stratergy)
         for client in self.clients:
             model_copy = copy_model(model,
-                                    self.configs.dataset,
-                                    self.configs.arch
+                                    self.args.dataset,
+                                    self.args.arch
                                     )
             client.download(model_copy)
