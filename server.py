@@ -116,7 +116,7 @@ class Server():
         """
             Eval self.model
         """
-        return evaluate(model=model,
+        return fevaluate(model=model,
                         data_loader=self.test_loader,
                         verbose=True)
 

@@ -42,7 +42,7 @@ class Client():
         """
             Interface to Server
         """
-        print("--------------STARTED UPDATE----------")
+        print(f"\n\n{['-']*20}STARTED UPDATE{['-']*20}\n\n")
         self.elapsed_comm_rounds += 1
         num_pruned, num_params = get_prune_summary(self.model)
         cur_prune_rate = num_pruned / num_params
