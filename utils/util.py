@@ -328,7 +328,7 @@ def train(model,
                         file=sys.stdout)
     # Iterating over all mini-batches
     for i, data in progress_bar:
-
+        
         x, ytrue = data
 
         yraw = model(x)
@@ -365,11 +365,11 @@ def ftrain(model,
            train_loader,
            lr=0.001,
            verbose=True):
-    for mod in list(model.modules()):
-        if type(mod) != nn.Sequential and type(mod) != type(model):
-            for name, param in mod.named_parameters():
-                if 'weight' in name:
-                    prune.remove(mod, 'weight')
+    # for mod in list(model.modules()):
+    #     if type(mod) != nn.Sequential and type(mod) != type(model):
+    #         for name, param in mod.named_parameters():
+    #             if 'weight' in name:
+    #                 prune.remove(mod, 'weight')
     EPS = 1e-6
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # model.to(device)
@@ -642,7 +642,7 @@ def fprune_fixed_amount(model, amount, verbose=True, glob=True):
         prune.global_unstructured(
             parameters_to_prune,
             pruning_method=prune.L1Unstructured,
-            amount=math.floor(amount * num_global_weights))
+            amount=amount)
     else:
         for i, (m, n) in enumerate(parameters_to_prune):
             prune.l1_unstructured(m, name=n, amount=math.floor(

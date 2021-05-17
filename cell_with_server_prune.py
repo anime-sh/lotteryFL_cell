@@ -55,6 +55,8 @@ def build_args(arch='mlp',
                train_verbosity=True,
                test_verbosity=True,
                prune_verbosity=True,
+               prune_threshold=0.5,
+               report_verbose=True
                ):
 
     args = type('', (), {})()
@@ -79,6 +81,11 @@ def build_args(arch='mlp',
     args.n_class = n_class
     args.n_samples = n_samples
     args.rate_unbalance = rate_unbalance
+    args.prune_threshold=prune_threshold
+    args.eita = eita
+    args.eita_hat = eita_hat
+    args.alpha = alpha
+    args.report_verbose=report_verbose
     return args
 
 
@@ -258,7 +265,7 @@ def run_experiment(args, overrides):
     server = args.server(args, clients=np.array(
         clients, dtype=np.object), test_loader=global_test_loader)
     print("Now running the algorithm")
-    server.update()  # important
+    server.update(prune = True)  # important
     return server, clients
 
 
@@ -288,10 +295,10 @@ CIFAR10_experiments = {
                    avg_logic='standalone',
                    num_clients=2,
                    comm_rounds=400,
-                   frac=.025,
-                   prune_step=0.0,     # effective disable pruning
-                   prune_percent=2,    # effective disable pruning
-                   acc_thresh=2,       # effective disable pruning
+                   frac=1,
+                   prune_step=0.2,     
+                   prune_percent=0.1,  
+                   acc_thresh=0.5,     
                    client_epoch=10,
                    batch_size=32,
                    lr=0.001,
@@ -300,7 +307,9 @@ CIFAR10_experiments = {
                    n_class=2,
                    eita_hat=0.5,
                    eita=0.5,
-                   alpha=0.75)
+                   alpha=0.75,
+                   prune_threshold=0.0125,
+                   report_verbose = False)
 }
 
 if __name__ == "__main__":

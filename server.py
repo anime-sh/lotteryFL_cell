@@ -6,11 +6,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune,log_obj
+from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, log_obj
 import numpy as np
 import torch.nn.utils.prune as prune
 from typing import List, Dict, Tuple
 import client
+
 
 class Server():
     """
@@ -41,8 +42,7 @@ class Server():
     ):
         return average_weights_masks(models=models,
                                      dataset=self.args.dataset,
-                                     arch=self.args.arch,
-                                     data_nums=self.num_clients)
+                                     arch=self.args.arch)
 
     def update(
         self,
@@ -60,24 +60,25 @@ class Server():
             print('-----------------------------', flush=True)
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
-            if prune:
+            if self.elapsed_comm_rounds % 10 == 0 and prune == True:
                 self.prune(self.model)
+                print("PRUNED GLOBAL MODEL @ SERVER")
             # broadcast model
             self.upload(self.model)
             #-------------------------------------------------#
             clients_idx = np.random.choice(
-                self.num_clients, self.args.frac * self.num_clients)
+                self.num_clients, int(self.args.frac * self.num_clients))
             clients = self.clients[clients_idx]
             #-------------------------------------------------#
-            for client in clients():
-                client.update(self.comm_rounds)
+            for client in clients:
+                client.update(self.elapsed_comm_rounds)
             #-------------------------------------------------#
             models, accs = self.download(clients)
             self.model = self.aggr(models)
 
             eval_score = self.eval(self.model)
-            if kwargs["verbose"] == 1:
-                print(f"eval_score = {eval_score['Accuracy']}")
+            # if kwargs["verbose"] == 1:
+            #     print(f"eval_score = {eval_score['Accuracy']}")
 
     def download(
         self,
@@ -103,8 +104,8 @@ class Server():
         super_prune(model=model,
                     init_model=self.init_model,
                     name="weight",
-                    threshold=self.args.threshold,
-                    verbose=True)
+                    threshold=self.args.prune_threshold,
+                    verbose=self.args.prune_verbosity)
 
     def eval(
         self,
@@ -115,7 +116,7 @@ class Server():
         """
             Eval self.model
         """
-        return evaluate(model=model,
+        return fevaluate(model=model,
                         data_loader=self.test_loader,
                         verbose=True)
 
@@ -129,9 +130,9 @@ class Server():
         """
         eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.verbose:
-            log_obj(eval_log_path1,self.model)
-            log_obj(eval_log_path2,self.__dict__)
+        if self.args.report_verbose:
+            log_obj(eval_log_path1, self.model)
+            log_obj(eval_log_path2, self.__dict__)
 
     def upload(
         self,
@@ -149,4 +150,4 @@ class Server():
                                     self.args.dataset,
                                     self.args.arch
                                     )
-            client.download(model_copy)
+            client.download(model_copy,self.init_model)
