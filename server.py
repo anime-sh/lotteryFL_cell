@@ -42,8 +42,7 @@ class Server():
     ):
         return average_weights_masks(models=models,
                                      dataset=self.args.dataset,
-                                     arch=self.args.arch,
-                                     data_nums=self.num_clients)
+                                     arch=self.args.arch)
 
     def update(
         self,
@@ -67,11 +66,11 @@ class Server():
             self.upload(self.model)
             #-------------------------------------------------#
             clients_idx = np.random.choice(
-                self.num_clients, self.args.frac * self.num_clients)
+                self.num_clients, int(self.args.frac * self.num_clients))
             clients = self.clients[clients_idx]
             #-------------------------------------------------#
-            for client in clients():
-                client.update(self.comm_rounds)
+            for client in clients:
+                client.update(self.elapsed_comm_rounds)
             #-------------------------------------------------#
             models, accs = self.download(clients)
             self.model = self.aggr(models)

@@ -42,6 +42,7 @@ class Client():
         """
             Interface to Server
         """
+        print("--------------STARTED UPDATE----------")
         self.elapsed_comm_rounds += 1
         num_pruned, num_params = get_prune_summary(self.model)
         cur_prune_rate = num_pruned / num_params
@@ -77,14 +78,14 @@ class Client():
         accuracies = []
         losses = []
 
-        for epoch in range(self.args.client_epochs):
+        for epoch in range(self.args.client_epoch):
             train_log_path = f'./log/clients/client{self.client_id}'\
                              f'/round{self.elapsed_comm_rounds}/'
             if self.args.train_verbosity:
                 print(f"Client={self.client_id}, epoch={epoch}")
             train_score = ftrain(self.model,
-                                 self.train_load,
-                                 self.lr,
+                                 self.train_loader,
+                                 self.args.lr,
                                  self.args.train_verbosity)
             losses.append(train_score['Loss'][-1].data.item())
             accuracies.append(train_score['Accuracy'][-1])
@@ -111,7 +112,7 @@ class Client():
         self.globalModel = globalModel
         self.global_initModel = global_initModel
 
-    def eval(self, model, test_loader):
+    def eval(self, model):
         """
             Eval self.model
         """
