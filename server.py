@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune
+from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune,log_obj
 import numpy as np
 import torch.nn.utils.prune as prune
 from typing import List, Dict, Tuple
@@ -28,6 +28,7 @@ class Server():
         self.clients = np.array(clients, dtype='object')
         self.num_clients = len(self.clients)
         self.args = args
+        self.elapsed_comm_rounds = 0
         self.test_loader = test_loader
         self.init_model = create_model(args.dataset, args.arch)
         self.model = copy_model(self.init_model, args.dataset, args.arch)
@@ -42,7 +43,6 @@ class Server():
                                      dataset=self.args.dataset,
                                      arch=self.args.arch,
                                      data_nums=self.num_clients)
-        pass
 
     def update(
         self,
@@ -55,7 +55,8 @@ class Server():
         """
 
         self.model.train()
-        for i in range(self.comm_rounds):
+        for i in range(self.args.comm_rounds):
+            self.elapsed_comm_rounds += 1
             print('-----------------------------', flush=True)
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
@@ -126,7 +127,11 @@ class Server():
         """
             Save model,meta-info,states
         """
-        pass
+        eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
+        eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
+        if self.args.verbose:
+            log_obj(eval_log_path1,self.model)
+            log_obj(eval_log_path2,self.__dict__)
 
     def upload(
         self,
