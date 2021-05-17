@@ -103,8 +103,8 @@ class Server():
         super_prune(model=model,
                     init_model=self.init_model,
                     name="weight",
-                    threshold=self.args.threshold,
-                    verbose=True)
+                    threshold=self.args.prune_threshold,
+                    verbose=self.args.prune_verbosity)
 
     def eval(
         self,
