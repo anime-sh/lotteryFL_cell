@@ -44,7 +44,19 @@ def get_parameters(module, name="weight_orig") -> nn.Parameter:
         if n == name:
             return params
 
+
 def testPruner(verbose=True):
+
+    class Foo(Module):
+        def __init__(self):
+            super().__init__()
+            self.l1 = nn.Linear(300, 10)
+            self.l2 = nn.Linear(10, 5)
+            self.l3 = nn.Linear(5, 2)
+
+    def forward(self, x):
+        return self.l3(self.l2(self.l1(x)))
+
     model = Foo()
 
     prune_fixed_amount(model, 0.0)  # init_pruning
@@ -83,16 +95,6 @@ def testPruner(verbose=True):
         print(
             f'Percent Pruned Globally: {global_prune_percent:.2f}', flush=True)
 
-
-class Foo(Module):
-    def __init__(self):
-        super().__init__()
-        self.l1 = nn.Linear(300, 10)
-        self.l2 = nn.Linear(10, 5)
-        self.l3 = nn.Linear(5, 2)
-
-    def forward(self, x):
-        return self.l3(self.l2(self.l1(x)))
 
 if __name__ == "__main__":
     testPruner()
