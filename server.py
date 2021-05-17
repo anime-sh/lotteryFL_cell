@@ -6,11 +6,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune,log_obj
+from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, log_obj
 import numpy as np
 import torch.nn.utils.prune as prune
 from typing import List, Dict, Tuple
 import client
+
 
 class Server():
     """
@@ -60,7 +61,7 @@ class Server():
             print('-----------------------------', flush=True)
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
-            if prune:
+            if self.elapsed_comm_rounds % 3 == 0 and prune == True:
                 self.prune(self.model)
             # broadcast model
             self.upload(self.model)
@@ -104,7 +105,7 @@ class Server():
                     init_model=self.init_model,
                     name="weight",
                     threshold=self.args.prune_threshold,
-                    verbose=self.args.prune_verbosity)
+                    verbose=self.args)
 
     def eval(
         self,
@@ -130,8 +131,8 @@ class Server():
         eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
         if self.args.verbose:
-            log_obj(eval_log_path1,self.model)
-            log_obj(eval_log_path2,self.__dict__)
+            log_obj(eval_log_path1, self.model)
+            log_obj(eval_log_path2, self.__dict__)
 
     def upload(
         self,
@@ -149,4 +150,4 @@ class Server():
                                     self.args.dataset,
                                     self.args.arch
                                     )
-            client.download(model_copy)
+            client.download(model_copy,self.init_model)

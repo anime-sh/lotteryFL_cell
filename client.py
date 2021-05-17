@@ -101,7 +101,7 @@ class Client():
         """
             Prune self.model
         """
-        fprune_fixed_amount(model, prune_ate,  # prune_step,
+        fprune_fixed_amount(model, prune_rate,  # prune_step,
                             verbose=self.args.prune_verbosity)
 
     def download(self, globalModel, global_initModel, *args, **kwargs):
