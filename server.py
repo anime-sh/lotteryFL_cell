@@ -60,7 +60,7 @@ class Server():
             print('-----------------------------', flush=True)
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
-            if self.elapsed_comm_rounds % 3 == 0 and prune == True:
+            if self.elapsed_comm_rounds % 10 == 0 and prune == True:
                 self.prune(self.model)
                 print("PRUNED GLOBAL MODEL @ SERVER")
             # broadcast model
