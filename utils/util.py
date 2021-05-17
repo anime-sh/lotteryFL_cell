@@ -642,7 +642,7 @@ def fprune_fixed_amount(model, amount, verbose=True, glob=True):
         prune.global_unstructured(
             parameters_to_prune,
             pruning_method=prune.L1Unstructured,
-            amount=math.floor(amount * num_global_weights))
+            amount=amount)
     else:
         for i, (m, n) in enumerate(parameters_to_prune):
             prune.l1_unstructured(m, name=n, amount=math.floor(
