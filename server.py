@@ -62,6 +62,7 @@ class Server():
             print('-----------------------------', flush=True)
             if self.elapsed_comm_rounds % 3 == 0 and prune == True:
                 self.prune(self.model)
+                print("PRUNED GLOBAL MODEL @ SERVER")
             # broadcast model
             self.upload(self.model)
             #-------------------------------------------------#
@@ -104,7 +105,7 @@ class Server():
                     init_model=self.init_model,
                     name="weight",
                     threshold=self.args.prune_threshold,
-                    verbose=self.args)
+                    verbose=self.args.prune_verbosity)
 
     def eval(
         self,
@@ -129,7 +130,7 @@ class Server():
         """
         eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.verbose:
+        if self.args.report_verbose:
             log_obj(eval_log_path1, self.model)
             log_obj(eval_log_path2, self.__dict__)
 

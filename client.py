@@ -132,7 +132,7 @@ class Client():
         """
         eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.verbose:
+        if self.args.report_verbose:
             log_obj(eval_log_path1,self.model)
             log_obj(eval_log_path2,self.__dict__)
 

@@ -55,7 +55,8 @@ def build_args(arch='mlp',
                train_verbosity=True,
                test_verbosity=True,
                prune_verbosity=True,
-               prune_threshold=0.5
+               prune_threshold=0.5,
+               report_verbose=True
                ):
 
     args = type('', (), {})()
@@ -84,6 +85,7 @@ def build_args(arch='mlp',
     args.eita = eita
     args.eita_hat = eita_hat
     args.alpha = alpha
+    args.report_verbose=report_verbose
     return args
 
 
@@ -293,7 +295,7 @@ CIFAR10_experiments = {
                    avg_logic='standalone',
                    num_clients=2,
                    comm_rounds=400,
-                   frac=.025,
+                   frac=1,
                    prune_step=0.2,     
                    prune_percent=0.1,  
                    acc_thresh=0.5,     
@@ -306,7 +308,8 @@ CIFAR10_experiments = {
                    eita_hat=0.5,
                    eita=0.5,
                    alpha=0.75,
-                   prune_threshold=0.5)
+                   prune_threshold=0.5,
+                   report_verbose = True)
 }
 
 if __name__ == "__main__":
