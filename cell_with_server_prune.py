@@ -258,7 +258,7 @@ def run_experiment(args, overrides):
     server = args.server(args, clients=np.array(
         clients, dtype=np.object), test_loader=global_test_loader)
     print("Now running the algorithm")
-    server.update()  # important
+    server.update(prune = True)  # important
     return server, clients
 
 
