@@ -265,7 +265,7 @@ def copy_model(model, dataset, arch, source_buff=None):
     return new_model
 
 
-def create_model(dataset_name, model_type) -> torch.Module:
+def create_model(dataset_name, model_type) -> torch.nn.Module:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if dataset_name == "mnist":

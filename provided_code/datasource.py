@@ -5,8 +5,8 @@ import torchvision as tv
 import torchvision.transforms as tf
 from sklearn.utils import shuffle
 from matplotlib import pyplot as plt
-from cifar10_noniid import get_dataset_cifar10_extr_noniid, cifar_extr_noniid
-from mnist_noniid import get_dataset_mnist_extr_noniid, mnist_extr_noniid
+from .cifar10_noniid import get_dataset_cifar10_extr_noniid, cifar_extr_noniid
+from .mnist_noniid import get_dataset_mnist_extr_noniid, mnist_extr_noniid
 # Given each user euqal number of samples if possible. If not, the last user 
 # gets whatever is left after other users had their shares
 

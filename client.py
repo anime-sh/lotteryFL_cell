@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch import Module
+from torch.nn import Module
 import numpy as np
 import os
 from utils import copy_model, create_model, get_prune_summary, train, ftrain, evaluate, fevaluate, train, ftrain, evaluate, fevaluate, fprune_fixed_amount, prune_fixed_amount, copy_model, create_model, get_prune_summary, log_obj

@@ -5,7 +5,7 @@ from tabulate import tabulate
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch import Module
+from torch.nn import Module
 from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune,log_obj
 import numpy as np
 import torch.nn.utils.prune as prune
