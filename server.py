@@ -14,6 +14,7 @@ import client
 import wandb
 
 
+
 class Server():
     """
         Central Server

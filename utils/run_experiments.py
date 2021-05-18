@@ -191,12 +191,12 @@ def run_experiment(args, overrides):
 
 
 def run_experiments(experiments, overrides):
-    wandb.login()
+    wandb.login(key='d4861008cc913fe8d72d9d5927aa7da69b7e26cb')
     run_times = {}
     start = time.time()
     for exp_name, exp_settings in experiments.items():
         overrides['exp_name'] = exp_name
-        wandb.init(project="CELL_"+exp_name)
+        wandb.init(project="CELL_BATUL_"+exp_name)
         run_start = time.time()
         server, clients = run_experiment(exp_settings, overrides)
         log_experiment(server, clients, exp_name, exp_settings)
