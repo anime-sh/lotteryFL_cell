@@ -48,7 +48,7 @@ class Client():
         cur_prune_rate = num_pruned / num_params
 
         eval_score = self.eval(self.globalModel)
-        wandb.log({f"{self.client_id}_eita":self.args.eita})
+        wandb.log({f"{self.client_id}_eita": self.args.eita})
         if eval_score["Accuracy"][0] > self.args.eita:
             prune_rate = min(cur_prune_rate + self.args.prune_step,
                              self.args.prune_percent)
@@ -58,8 +58,8 @@ class Client():
                                     self.args.arch,
                                     dict(self.globalModel.named_buffers()))
             self.prune(self.model, prune_rate)
-            wandb.log({f"{self.client_id}_cur_prune_rate":cur_prune_rate})
-            wandb.log({f"{self.client_id}_prune_rate":prune_rate})
+            wandb.log({f"{self.client_id}_cur_prune_rate": cur_prune_rate})
+            wandb.log({f"{self.client_id}_prune_rate": prune_rate})
             self.args.eita = self.args.eita_hat
 
         else:
@@ -71,7 +71,20 @@ class Client():
         #-----------------------TRAINING LOOOP ------------------------#
         self.train(round_index)
         self.eval_score = self.eval(self.model)
-        wandb.log({f"{self.client_id}_eval_score":self.eval_score})
+        wandb.log({f"{self.client_id}_eval_score_loss": self.eval_score.loss})
+        wandb.log(
+            {f"{self.client_id}_eval_score_PrecisionMacro": self.eval_score.PrecisionMacro})
+        wandb.log(
+            {f"{self.client_id}_eval_score_PrecisionMicro": self.eval_score.PrecisionMicro})
+        wandb.log(
+            {f"{self.client_id}_eval_score_Accuracy": self.eval_score.Accuracy})
+        wandb.log(
+            {f"{self.client_id}_eval_score_BalancedAccuracy": self.eval_score.BalancedAccuracy})
+        wandb.log(
+            {f"{self.client_id}_eval_score_RecallMacro": self.eval_score.RecallMacro})
+        wandb.log(
+            {f"{self.client_id}_eval_score_RecallMicro": self.eval_score.RecallMicro})
+
         self.save(self.model)
 
     def train(self, round_index):
@@ -97,7 +110,7 @@ class Client():
                 f'client_train_score_epoch{epoch}.pickle'
             log_obj(epoch_path, self.model)
             log_obj(epoch_score_path, train_score)
-    
+
         self.losses[round_index:] = np.array(losses)
         self.accuracies[round_index:] = np.array(accuracies)
 
@@ -136,8 +149,8 @@ class Client():
         eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
         if self.args.report_verbose:
-            log_obj(eval_log_path1,self.model)
-            log_obj(eval_log_path2,self.__dict__)
+            log_obj(eval_log_path1, self.model)
+            log_obj(eval_log_path2, self.__dict__)
 
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """

@@ -90,7 +90,7 @@ def build_args(arch='mlp',
 
 
 CIFAR10_experiments = {
-    'CIFAR10_standalone':
+    'CIFAR10_with_server_side_pruning':
         build_args(arch='cnn',
                    client=Client,
                    server=Server,

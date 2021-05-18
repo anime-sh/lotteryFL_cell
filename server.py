@@ -13,6 +13,7 @@ from typing import List, Dict, Tuple
 import client
 import wandb
 
+
 class Server():
     """
         Central Server
@@ -60,7 +61,7 @@ class Server():
             print('-----------------------------', flush=True)
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
-            
+
             if self.elapsed_comm_rounds % 10 == 0 and prune == True:
                 self.prune(self.model)
                 print("PRUNED GLOBAL MODEL @ SERVER")
@@ -78,8 +79,18 @@ class Server():
             self.model = self.aggr(models)
 
             eval_score = self.eval(self.model)
-            wandb.log({"eval_score_server_model": eval_score})
-            wandb.log({"client_acc":accs})
+            wandb.log({f"server_eval_score_loss": eval_score.loss})
+            wandb.log(
+                {f"server_eval_score_PrecisionMacro": eval_score.PrecisionMacro})
+            wandb.log(
+                {f"server_eval_score_PrecisionMicro": eval_score.PrecisionMicro})
+            wandb.log({f"server_eval_score_Accuracy": eval_score.Accuracy})
+            wandb.log(
+                {f"server_eval_score_BalancedAccuracy": eval_score.BalancedAccuracy})
+            wandb.log({f"server_eval_score_RecallMacro": eval_score.RecallMacro})
+            wandb.log({f"server_eval_score_RecallMicro": eval_score.RecallMicro})
+
+            # wandb.log({"client_acc":accs})
             # if kwargs["verbose"] == 1:
             #     print(f"eval_score = {eval_score['Accuracy']}")
 
@@ -120,8 +131,8 @@ class Server():
             Eval self.model
         """
         return fevaluate(model=model,
-                        data_loader=self.test_loader,
-                        verbose=True)
+                         data_loader=self.test_loader,
+                         verbose=True)
 
     def save(
         self,
@@ -153,4 +164,4 @@ class Server():
                                     self.args.dataset,
                                     self.args.arch
                                     )
-            client.download(model_copy,self.init_model)
+            client.download(model_copy, self.init_model)
