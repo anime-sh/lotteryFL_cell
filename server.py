@@ -11,7 +11,7 @@ import numpy as np
 import torch.nn.utils.prune as prune
 from typing import List, Dict, Tuple
 import client
-
+import wandb
 
 class Server():
     """
@@ -60,6 +60,7 @@ class Server():
             print('-----------------------------', flush=True)
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
+            
             if self.elapsed_comm_rounds % 10 == 0 and prune == True:
                 self.prune(self.model)
                 print("PRUNED GLOBAL MODEL @ SERVER")
@@ -77,6 +78,8 @@ class Server():
             self.model = self.aggr(models)
 
             eval_score = self.eval(self.model)
+            wandb.log({"eval_score_server_model": eval_score})
+            wandb.log({"client_acc":accs})
             # if kwargs["verbose"] == 1:
             #     print(f"eval_score = {eval_score['Accuracy']}")
 

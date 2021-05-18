@@ -8,6 +8,7 @@ from utils import create_model
 import torch
 import random
 from provided_code.datasource import get_data
+import wandb
 
 def log_experiment(server, clients, exp_name, exp_settings):
     print("###########################################################")
@@ -190,10 +191,12 @@ def run_experiment(args, overrides):
 
 
 def run_experiments(experiments, overrides):
+    wandb.login()
     run_times = {}
     start = time.time()
     for exp_name, exp_settings in experiments.items():
         overrides['exp_name'] = exp_name
+        wandb.init(project="CELL_"+exp_name)
         run_start = time.time()
         server, clients = run_experiment(exp_settings, overrides)
         log_experiment(server, clients, exp_name, exp_settings)

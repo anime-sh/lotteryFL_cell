@@ -9,7 +9,7 @@ import numpy as np
 from typing import Dict
 import copy
 import math
-
+import wandb
 # from util import train, ftrain, evaluate, fevaluate, fprune_fixed_amount, fprune_fixed_amount_res, prune_fixed_amount, copy_model, \
 # #   create_model, get_prune_summary, log_obj, merge_models, get_prune_summary_res
 
@@ -69,6 +69,10 @@ class Client():
         #-----------------------TRAINING LOOOP ------------------------#
         self.train(round_index)
         self.eval_score = self.eval(self.model)
+        wandb.log({f"{self.client_id}_eval_score":self.eval_score})
+        wandb.log({f"{self.client_id}_eita":self.args.eita})
+        wandb.log({f"{self.client_id}_cur_prune_rate":cur_prune_rate})
+        wandb.log({f"{self.client_id}_prune_rate":prune_rate})
         self.save(self.model)
 
     def train(self, round_index):
