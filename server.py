@@ -34,6 +34,8 @@ class Server():
         self.test_loader = test_loader
         self.init_model = create_model(args.dataset, args.arch)
         self.model = copy_model(self.init_model, args.dataset, args.arch)
+        self.accuracies = np.zeros((args.comm_rounds))
+        self.client_accuracies = np.zeros((args.comm_rounds,self.num_clients))
 
     def aggr(
         self,
@@ -76,14 +78,17 @@ class Server():
                 client.update(self.elapsed_comm_rounds)
             #-------------------------------------------------#
             models, accs = self.download(clients)
+            self.client_accuracies[i][clients_idx] = accs
             self.model = self.aggr(models)
-
             eval_score = self.eval(self.model)
+            self.accuracies[i] = eval_score["Accuracy"]
+            
             for key,thing in eval_score.items():
               if(isinstance(thing,list)):
                 wandb.log({f"server_{key}": thing[0]})
               else:  
                 wandb.log({f"server_{key}": thing.item()})
+            
 
     def download(
         self,
