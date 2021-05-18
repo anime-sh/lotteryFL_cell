@@ -72,7 +72,7 @@ class Server():
             self.upload(self.model)
             #-------------------------------------------------#
             clients_idx = np.random.choice(
-                self.num_clients, int(self.args.frac * self.num_clients))
+                self.num_clients, int(self.args.frac * self.num_clients),replace = False)
             clients = self.clients[clients_idx]
             #-------------------------------------------------#
             for client in clients:
@@ -82,7 +82,7 @@ class Server():
             self.client_accuracies[i][clients_idx] = accs
             self.model = self.aggr(models)
             eval_score = self.eval(self.model)
-            self.accuracies[i] = eval_score["Accuracy"]
+            self.accuracies[i] = eval_score["Accuracy"][0]
             
             for key,thing in eval_score.items():
               if(isinstance(thing,list)):
@@ -100,7 +100,7 @@ class Server():
         # TODO: parallelize downloading models from clients
         uploads = [client.upload() for client in clients]
         models = [upload["model"] for upload in uploads]
-        accs = [upload["acc"] for upload in uploads]
+        accs = [upload["acc"][0] for upload in uploads]
         return models, accs
 
     def prune(

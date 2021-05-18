@@ -54,28 +54,30 @@ def super_prune(model, init_model, name="weight", threshold=0.2,verbose = True):
         orig_params = get_parameters(init_params[idx][0], "weight_orig")
         orig_params = orig_params[param.weight_mask.to(torch.bool)]
         globalPrunerStructured(param, "weight", threshold, orig_params)
+        
 
-    num_global_zeros, num_layer_zeros, num_layer_weights = 0, 0, 0
-    global_prune_percent, layer_prune_percent = 0, 0
-    prune_stat = {'Layers': [],
-                  'Weight Name': [],
-                  'Percent Pruned': [],
-                  'Total Pruned': []}
-
-    for layer, weight_name in params:
-
-        num_layer_zeros = torch.sum(getattr(layer, weight_name) == 0.0).item()
-        num_global_zeros += num_layer_zeros
-        num_layer_weights = torch.numel(getattr(layer, weight_name))
-        layer_prune_percent = num_layer_zeros / num_layer_weights * 100
-        prune_stat['Layers'].append(layer.__str__())
-        prune_stat['Weight Name'].append(weight_name)
-        prune_stat['Percent Pruned'].append(
-            f'{num_layer_zeros} / {num_layer_weights} ({layer_prune_percent:.5f}%)')
-        prune_stat['Total Pruned'].append(f'{num_layer_zeros}')
-
-    global_prune_percent = num_global_zeros / num_global_weights
     if verbose:
+        num_global_zeros, num_layer_zeros, num_layer_weights = 0, 0, 0
+        global_prune_percent, layer_prune_percent = 0, 0
+        prune_stat = {'Layers': [],
+                    'Weight Name': [],
+                    'Percent Pruned': [],
+                    'Total Pruned': []}
+
+        for layer, weight_name in params:
+
+            num_layer_zeros = torch.sum(getattr(layer, weight_name) == 0.0).item()
+            num_global_zeros += num_layer_zeros
+            num_layer_weights = torch.numel(getattr(layer, weight_name))
+            layer_prune_percent = num_layer_zeros / num_layer_weights * 100
+            prune_stat['Layers'].append(layer.__str__())
+            prune_stat['Weight Name'].append(weight_name)
+            prune_stat['Percent Pruned'].append(
+                f'{num_layer_zeros} / {num_layer_weights} ({layer_prune_percent:.5f}%)')
+            prune_stat['Total Pruned'].append(f'{num_layer_zeros}')
+
+        global_prune_percent = num_global_zeros / num_global_weights
+        
         print('Pruning Summary', flush=True)
         print(tabulate(prune_stat, headers='keys'), flush=True)
         print(

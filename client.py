@@ -52,12 +52,12 @@ class Client():
         if eval_score["Accuracy"][0] > self.args.eita:
             prune_rate = min(cur_prune_rate + self.args.prune_step,
                              self.args.prune_percent)
-
+            self.prune(self.globalModel, prune_rate)
             self.model = copy_model(self.global_initModel,
                                     self.args.dataset,
                                     self.args.arch,
                                     dict(self.globalModel.named_buffers()))
-            self.prune(self.model, prune_rate)
+            
             wandb.log({f"{self.client_id}_cur_prune_rate": cur_prune_rate})
             wandb.log({f"{self.client_id}_prune_rate": prune_rate})
             self.args.eita = self.args.eita_hat
