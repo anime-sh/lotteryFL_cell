@@ -48,7 +48,7 @@ class Client():
         cur_prune_rate = num_pruned / num_params
 
         eval_score = self.eval(self.globalModel)
-
+        wandb.log({f"{self.client_id}_eita":self.args.eita})
         if eval_score["Accuracy"][0] > self.args.eita:
             prune_rate = min(cur_prune_rate + self.args.prune_step,
                              self.args.prune_percent)
@@ -58,6 +58,8 @@ class Client():
                                     self.args.arch,
                                     dict(self.globalModel.named_buffers()))
             self.prune(self.model, prune_rate)
+            wandb.log({f"{self.client_id}_cur_prune_rate":cur_prune_rate})
+            wandb.log({f"{self.client_id}_prune_rate":prune_rate})
             self.args.eita = self.args.eita_hat
 
         else:
@@ -70,9 +72,6 @@ class Client():
         self.train(round_index)
         self.eval_score = self.eval(self.model)
         wandb.log({f"{self.client_id}_eval_score":self.eval_score})
-        wandb.log({f"{self.client_id}_eita":self.args.eita})
-        wandb.log({f"{self.client_id}_cur_prune_rate":cur_prune_rate})
-        wandb.log({f"{self.client_id}_prune_rate":prune_rate})
         self.save(self.model)
 
     def train(self, round_index):
