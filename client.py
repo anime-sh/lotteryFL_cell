@@ -71,20 +71,11 @@ class Client():
         #-----------------------TRAINING LOOOP ------------------------#
         self.train(round_index)
         self.eval_score = self.eval(self.model)
-        wandb.log({f"{self.client_id}_eval_score_loss": self.eval_score.loss})
-        wandb.log(
-            {f"{self.client_id}_eval_score_PrecisionMacro": self.eval_score.PrecisionMacro})
-        wandb.log(
-            {f"{self.client_id}_eval_score_PrecisionMicro": self.eval_score.PrecisionMicro})
-        wandb.log(
-            {f"{self.client_id}_eval_score_Accuracy": self.eval_score.Accuracy})
-        wandb.log(
-            {f"{self.client_id}_eval_score_BalancedAccuracy": self.eval_score.BalancedAccuracy})
-        wandb.log(
-            {f"{self.client_id}_eval_score_RecallMacro": self.eval_score.RecallMacro})
-        wandb.log(
-            {f"{self.client_id}_eval_score_RecallMicro": self.eval_score.RecallMicro})
-
+        for key,thing in self.eval_score.items():
+          if(isinstance(thing,list)):
+            wandb.log({f"{self.client_id}_{key}": thing[0]})
+          else:
+            wandb.log({f"{self.client_id}_{key}": thing.item()})
         self.save(self.model)
 
     def train(self, round_index):

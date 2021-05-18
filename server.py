@@ -79,20 +79,11 @@ class Server():
             self.model = self.aggr(models)
 
             eval_score = self.eval(self.model)
-            wandb.log({f"server_eval_score_loss": eval_score.loss})
-            wandb.log(
-                {f"server_eval_score_PrecisionMacro": eval_score.PrecisionMacro})
-            wandb.log(
-                {f"server_eval_score_PrecisionMicro": eval_score.PrecisionMicro})
-            wandb.log({f"server_eval_score_Accuracy": eval_score.Accuracy})
-            wandb.log(
-                {f"server_eval_score_BalancedAccuracy": eval_score.BalancedAccuracy})
-            wandb.log({f"server_eval_score_RecallMacro": eval_score.RecallMacro})
-            wandb.log({f"server_eval_score_RecallMicro": eval_score.RecallMicro})
-
-            # wandb.log({"client_acc":accs})
-            # if kwargs["verbose"] == 1:
-            #     print(f"eval_score = {eval_score['Accuracy']}")
+            for key,thing in eval_score.items():
+              if(isinstance(thing,list)):
+                wandb.log({f"server_{key}": thing[0]})
+              else:  
+                wandb.log({f"server_{key}": thing.item()})
 
     def download(
         self,
