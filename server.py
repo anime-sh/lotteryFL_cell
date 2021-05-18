@@ -83,6 +83,9 @@ class Server():
             self.model = self.aggr(models)
             eval_score = self.eval(self.model)
             self.accuracies[i] = eval_score["Accuracy"][0]
+
+            print(f"{'-'*30} AVERAGE-ACCURACY {'-'*30}:{np.sum(accs)}")
+            wandb.log({f"client_avg_acc": np.sum(accs)})
             
             for key,thing in eval_score.items():
               if(isinstance(thing,list)):

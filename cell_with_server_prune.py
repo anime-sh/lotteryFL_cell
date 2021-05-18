@@ -80,13 +80,12 @@ def build_args(arch='mlp',
     args.n_class = n_class
     args.n_samples = n_samples
     args.rate_unbalance = rate_unbalance
-    args.prune_threshold=prune_threshold
+    args.prune_threshold = prune_threshold
     args.eita = eita
     args.eita_hat = eita_hat
     args.alpha = alpha
-    args.report_verbose=report_verbose
+    args.report_verbose = report_verbose
     return args
-
 
 
 CIFAR10_experiments = {
@@ -99,9 +98,9 @@ CIFAR10_experiments = {
                    num_clients=100,
                    comm_rounds=400,
                    frac=0.25,
-                   prune_step=0.2,     
-                   prune_percent=0.8,  
-                   acc_thresh=0.5,     
+                   prune_step=0.2,
+                   prune_percent=0.8,
+                   acc_thresh=0.5,
                    client_epoch=10,
                    batch_size=32,
                    lr=0.001,
@@ -112,7 +111,10 @@ CIFAR10_experiments = {
                    eita=0.5,
                    alpha=0.75,
                    prune_threshold=0.0125,
-                   report_verbose = False)
+                   report_verbose=False,
+                   train_verbosity=True,
+                   test_verbosity=True,
+                   prune_verbosity=True)
 }
 
 if __name__ == "__main__":
@@ -120,4 +122,4 @@ if __name__ == "__main__":
         'log_folder': './report_output',
         'running_on_cloud': False
     }
-    run_experiments(CIFAR10_experiments,overrides)
+    run_experiments(CIFAR10_experiments, overrides)
