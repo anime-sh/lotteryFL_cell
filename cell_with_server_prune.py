@@ -55,8 +55,9 @@ def build_args(arch='mlp',
                test_verbosity=True,
                prune_verbosity=True,
                prune_threshold=0.5,
-               globalPrune = False,
-               report_verbosity=True
+               globalPrune=False,
+               report_verbosity=True,
+               global_prune_freq=40
                ):
 
     args = type('', (), {})()
@@ -87,6 +88,7 @@ def build_args(arch='mlp',
     args.alpha = alpha
     args.globalPrune = globalPrune
     args.report_verbosity = report_verbosity
+    args.global_prune_freq = global_prune_freq
     return args
 
 
@@ -116,8 +118,9 @@ CIFAR10_experiments = {
                    report_verbosity=False,
                    train_verbosity=True,
                    test_verbosity=True,
-                   globalPrune = True,
-                   prune_verbosity=True)
+                   globalPrune=True,
+                   prune_verbosity=True,
+                   global_prune_freq=40)
 }
 
 if __name__ == "__main__":
