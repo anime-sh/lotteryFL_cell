@@ -24,10 +24,6 @@ class Client():
         self.args = args
         print("Creating model for client " + str(client_id))
         self.model = create_model(self.args.dataset, self.args.arch)
-        # print("Copying model for client " + str(client_id))
-        # self.init_model = copy_model(
-        #     self.model, self.args.dataset, self.args.arch)
-        # print("Done Copying model for client " + str(client_id))
         self.test_loader = test_loader
         self.train_loader = train_loader
         self.client_id = client_id
@@ -38,11 +34,11 @@ class Client():
         assert self.model, "Something went wrong and the model cannot be initialized"
         #######
 
-    def update(self, round_index) -> None:
+    def update(self) -> None:
         """
             Interface to Server
         """
-        print(f"\n\n{'-'*20}STARTED UPDATE{'-'*20}\n\n")
+        print(f"\n\n{'-'*20}Client:{self.client_id} UPDATE{'-'*20}\n\n")
         self.elapsed_comm_rounds += 1
         num_pruned, num_params = get_prune_summary(self.model)
         cur_prune_rate = num_pruned / num_params
@@ -52,7 +48,8 @@ class Client():
         if eval_score["Accuracy"][0] > self.args.eita:
             prune_rate = min(cur_prune_rate + self.args.prune_step,
                              self.args.prune_percent)
-            self.prune(self.globalModel, prune_rate)
+            ## prune by prune_rate -current_prune_rate
+            self.prune(self.globalModel, prune_rate - cur_prune_rate)
             self.model = copy_model(self.global_initModel,
                                     self.args.dataset,
                                     self.args.arch,
@@ -69,8 +66,9 @@ class Client():
                                     self.args.arch)
 
         #-----------------------TRAINING LOOOP ------------------------#
-        self.train(round_index)
+        self.train(self.elapsed_comm_rounds)
         self.eval_score = self.eval(self.model)
+
         for key,thing in self.eval_score.items():
           if(isinstance(thing,list)):
             wandb.log({f"{self.client_id}_{key}": thing[0]})
@@ -96,11 +94,13 @@ class Client():
                                  self.args.train_verbosity)
             losses.append(train_score['Loss'][-1].data.item())
             accuracies.append(train_score['Accuracy'][-1])
-            epoch_path = train_log_path + f'client_model_epoch{epoch}.torch'
-            epoch_score_path = train_log_path + \
-                f'client_train_score_epoch{epoch}.pickle'
-            log_obj(epoch_path, self.model)
-            log_obj(epoch_score_path, train_score)
+
+            if self.args.report_verbosity:
+                epoch_path = train_log_path + f'client_model_epoch{epoch}.torch'
+                epoch_score_path = train_log_path + \
+                    f'client_train_score_epoch{epoch}.pickle'
+                log_obj(epoch_path, self.model)
+                log_obj(epoch_score_path, train_score)
 
         self.losses[round_index:] = np.array(losses)
         self.accuracies[round_index:] = np.array(accuracies)
@@ -137,9 +137,9 @@ class Client():
         """
             Save model,meta-info,states
         """
-        eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
-        eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.report_verbose:
+        if self.args.report_verbosity:
+            eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
+            eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
             log_obj(eval_log_path1, self.model)
             log_obj(eval_log_path2, self.__dict__)
 
