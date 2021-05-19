@@ -30,6 +30,7 @@ class Client():
         self.accuracies = np.zeros((args.comm_rounds, self.args.client_epoch))
         self.losses = np.zeros((args.comm_rounds, self.args.client_epoch))
         self.prune_rates = np.zeros(args.comm_rounds)
+        self.curr_prune_rate = 0.00
         assert self.model, "Something went wrong and the model cannot be initialized"
         #######
 
@@ -55,7 +56,7 @@ class Client():
                 # expected final pruning % of local model
                 # prune model by prune_rate - current_prune_rate
                 # every iteration pruning should be increase by prune_step if viable
-                prune_rate = min(cur_prune_rate + self.args.prune_step,
+                prune_rate = min(self.cur_prune_rate + self.args.prune_step,
                                 self.args.prune_percent)
                 if prune_rate > cur_prune_rate:
                     self.prune(self.globalModel,
