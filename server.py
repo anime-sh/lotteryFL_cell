@@ -66,7 +66,7 @@ class Server():
                 ## Reinitialize model with initial params
                 self.model = copy_model(self.init_model,
                                         self.args.dataset,
-                                        self, args.arch,
+                                        self.args.arch,
                                         source_buff=self.model.named_buffers())
 
             self.model.train()
