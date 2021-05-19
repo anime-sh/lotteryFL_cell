@@ -30,7 +30,7 @@ class Client():
         self.accuracies = np.zeros((args.comm_rounds, self.args.client_epoch))
         self.losses = np.zeros((args.comm_rounds, self.args.client_epoch))
         self.prune_rates = np.zeros(args.comm_rounds)
-        self.curr_prune_rate = 0.00
+        self.cur_prune_rate = 0.00
         assert self.model, "Something went wrong and the model cannot be initialized"
         #######
 
