@@ -58,6 +58,7 @@ class Client():
                 # every iteration pruning should be increase by prune_step if viable
                 prune_rate = min(self.cur_prune_rate + self.args.prune_step,
                                 self.args.prune_percent)
+                self.cur_prune_rate = prune_rate
                 if prune_rate > cur_prune_rate:
                     self.prune(self.globalModel,
                             prune_rate=prune_rate - cur_prune_rate)
@@ -86,7 +87,7 @@ class Client():
         self.eval_score = self.eval(self.model)
 
         with torch.no_grad():
-            wandb.log({f"{self.client_id}_cur_prune_rate": cur_prune_rate})
+            wandb.log({f"{self.client_id}_cur_prune_rate": self.cur_prune_rate})
             wandb.log({f"{self.client_id}_eita": self.args.eita})
 
             for key, thing in self.eval_score.items():
