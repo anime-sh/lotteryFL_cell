@@ -95,18 +95,19 @@ class Server():
                 client.update()
 
             # download local models for selected clients
-            models, accs = self.download(clients)
-            self.client_accuracies[clients_idx, i] = accs
-            # aggregate all models (fed-avg)
-            self.model = self.aggr(models)
+            with torch.no_grad():
+                models, accs = self.download(clients)
+                self.client_accuracies[clients_idx, i] = accs[:]
+                # aggregate all models (fed-avg)
+                self.model = self.aggr(models)
+                del models
+                avg_accuracy = np.sum(accs)/len(clients_idx)
+                print('-----------------------------', flush=True)
+                print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
+                print('-----------------------------', flush=True)
 
-            avg_accuracy = np.sum(accs)/len(clients_idx)
-            print('-----------------------------', flush=True)
-            print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
-            print('-----------------------------', flush=True)
-
-            wandb.log({"client_avg_acc": avg_accuracy})
-            self.elapsed_comm_rounds += 1
+                wandb.log({"client_avg_acc": avg_accuracy})
+                self.elapsed_comm_rounds += 1
 
     def download(
         self,

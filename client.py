@@ -49,7 +49,7 @@ class Client():
                 self.globalModel, name='weight')
             cur_prune_rate = num_pruned / num_params
 
-            print(torch.cuda.max_memory_allocated("cuda:0"))
+
             if eval_score["Accuracy"][0] > self.args.eita:
                 #--------------------Lottery Finder-----------------#
                 # expected final pruning % of local model
@@ -83,7 +83,6 @@ class Client():
         self.model.train()
         self.train(self.elapsed_comm_rounds)
         self.eval_score = self.eval(self.model)
-        print(torch.cuda.max_memory_allocated("cuda:0"))
 
         with torch.no_grad():
             wandb.log({f"{self.client_id}_cur_prune_rate": cur_prune_rate})
