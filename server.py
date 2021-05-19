@@ -31,10 +31,8 @@ class Server():
         self.num_clients = len(self.clients)
         self.args = args
         self.elapsed_comm_rounds = 0
-        self.test_loader = test_loader
         self.init_model = create_model(args.dataset, args.arch)
         self.model = copy_model(self.init_model, args.dataset, args.arch)
-        self.accuracies = np.zeros((args.comm_rounds))
         self.client_accuracies = np.zeros((args.comm_rounds, self.num_clients))
 
     def aggr(
@@ -57,7 +55,6 @@ class Server():
             Interface to server and clients
         """
 
-        self.model.train()
         for i in range(self.args.comm_rounds):
             self.elapsed_comm_rounds += 1
             print('-----------------------------', flush=True)
@@ -65,8 +62,15 @@ class Server():
             print('-----------------------------', flush=True)
 
             if self.elapsed_comm_rounds % 10 == 0 and prune == True:
+                print("|----------Pruning Global Model-----------|")
                 self.prune(self.model)
-                print("PRUNED GLOBAL MODEL @ SERVER")
+                ## Reinitialize model with initial params
+                self.model = copy_model(self.init_model,
+                                        self.args.dataset,
+                                        self, args.arch,
+                                        source_buff=self.model.named_buffers())
+
+            self.model.train()
             # broadcast model
             self.upload(self.model)
             #-------------------------------------------------#
@@ -75,22 +79,19 @@ class Server():
             clients = self.clients[clients_idx]
             #-------------------------------------------------#
             for client in clients:
-                client.update(self.elapsed_comm_rounds)
+                client.update()
             #-------------------------------------------------#
             models, accs = self.download(clients)
             self.client_accuracies[i][clients_idx] = accs
             self.model = self.aggr(models)
-            eval_score = self.eval(self.model)
-            self.accuracies[i] = eval_score["Accuracy"][0]
 
-            print(f"{'-'*30} AVERAGE-ACCURACY {'-'*30}:{np.sum(accs)/len(clients_idx)}")
-            wandb.log({"client_avg_acc": np.sum(accs)/len(clients_idx)})
+            avg_accuracy = np.sum(accs)/len(clients_idx)
 
-            for key, thing in eval_score.items():
-                if(isinstance(thing, list)):
-                    wandb.log({f"server_{key}": thing[0]})
-                else:
-                    wandb.log({f"server_{key}": thing.item()})
+            print('-----------------------------', flush=True)
+            print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
+            print('-----------------------------', flush=True)
+
+            wandb.log({"client_avg_acc": avg_accuracy})
 
     def download(
         self,
@@ -118,8 +119,6 @@ class Server():
                     name="weight",
                     threshold=self.args.prune_threshold,
                     verbose=self.args.prune_verbosity)
-        self.model = copy_model(self.init_model, self.args.dataset,
-                                self.args.arch, self, source_buff=self.model.named_buffers())
 
     def eval(
         self,
@@ -144,7 +143,7 @@ class Server():
         """
         eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.report_verbose:
+        if self.args.report_verbosity:
             log_obj(eval_log_path1, self.model)
             log_obj(eval_log_path2, self.__dict__)
 
