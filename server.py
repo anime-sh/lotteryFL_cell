@@ -67,7 +67,7 @@ class Server():
                 self.model = copy_model(self.init_model,
                                         self.args.dataset,
                                         self.args.arch,
-                                        source_buff=self.model.named_buffers())
+                                        source_buff=dict(self.model.named_buffers()))
 
             self.model.train()
             # broadcast model
