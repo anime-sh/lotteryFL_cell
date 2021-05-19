@@ -14,7 +14,6 @@ import client
 import wandb
 
 
-
 class Server():
     """
         Central Server
@@ -36,7 +35,7 @@ class Server():
         self.init_model = create_model(args.dataset, args.arch)
         self.model = copy_model(self.init_model, args.dataset, args.arch)
         self.accuracies = np.zeros((args.comm_rounds))
-        self.client_accuracies = np.zeros((args.comm_rounds,self.num_clients))
+        self.client_accuracies = np.zeros((args.comm_rounds, self.num_clients))
 
     def aggr(
         self,
@@ -72,7 +71,7 @@ class Server():
             self.upload(self.model)
             #-------------------------------------------------#
             clients_idx = np.random.choice(
-                self.num_clients, int(self.args.frac * self.num_clients),replace = False)
+                self.num_clients, int(self.args.frac * self.num_clients), replace=False)
             clients = self.clients[clients_idx]
             #-------------------------------------------------#
             for client in clients:
@@ -86,13 +85,12 @@ class Server():
 
             print(f"{'-'*30} AVERAGE-ACCURACY {'-'*30}:{np.sum(accs)/len(clients_idx)}")
             wandb.log({"client_avg_acc": np.sum(accs)/len(clients_idx)})
-            
-            for key,thing in eval_score.items():
-              if(isinstance(thing,list)):
-                wandb.log({f"server_{key}": thing[0]})
-              else:  
-                wandb.log({f"server_{key}": thing.item()})
-            
+
+            for key, thing in eval_score.items():
+                if(isinstance(thing, list)):
+                    wandb.log({f"server_{key}": thing[0]})
+                else:
+                    wandb.log({f"server_{key}": thing.item()})
 
     def download(
         self,
@@ -120,6 +118,8 @@ class Server():
                     name="weight",
                     threshold=self.args.prune_threshold,
                     verbose=self.args.prune_verbosity)
+        self.model = copy_model(self.init_model, self.args.dataset,
+                                self.args.arch, self, source_buff=self.model.named_buffers())
 
     def eval(
         self,
