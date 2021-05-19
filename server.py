@@ -64,30 +64,31 @@ class Server():
         """
 
         for i in range(self.args.comm_rounds):
+            
+            with torch.no_grad():
+                print('-----------------------------', flush=True)
+                print(f'| Communication Round: {i+1}  | ', flush=True)
+                print('-----------------------------', flush=True)
 
-            print('-----------------------------', flush=True)
-            print(f'| Communication Round: {i+1}  | ', flush=True)
-            print('-----------------------------', flush=True)
+                if (self.elapsed_comm_rounds %
+                    self.args.global_prune_freq) == 0 \
+                        and self.args.globalPrune == True:
 
-            if (self.elapsed_comm_rounds %
-                self.args.global_prune_freq) == 0 \
-                    and self.args.globalPrune == True:
+                    # Implement global pruning by pruning aggregated model
+                    # and then copy initial_params to parameters with pruned model's buffer
+                    self.prune(self.model)
+                    self.model = copy_model(self.init_model,
+                                            self.args.dataset,
+                                            self.args.arch,
+                                            source_buff=dict(self.model.named_buffers()))
 
-                # Implement global pruning by pruning aggregated model
-                # and then copy initial_params to parameters with pruned model's buffer
-                self.prune(self.model)
-                self.model = copy_model(self.init_model,
-                                        self.args.dataset,
-                                        self.args.arch,
-                                        source_buff=dict(self.model.named_buffers()))
+                # upload model,iniitial_model(optional)
+                self.upload()
 
-            # upload model,iniitial_model(optional)
-            self.upload()
-
-            # select fraction clients for training (uniform sampling)
-            clients_idx = np.random.choice(
-                self.num_clients, int(self.args.frac * self.num_clients), replace=False)
-            clients = self.clients[clients_idx]
+                # select fraction clients for training (uniform sampling)
+                clients_idx = np.random.choice(
+                    self.num_clients, int(self.args.frac * self.num_clients), replace=False)
+                clients = self.clients[clients_idx]
 
             # update client models
             for client in clients:

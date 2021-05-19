@@ -463,15 +463,11 @@ def evaluate(model, data_loader, verbose=True):
     torch.enable_grad()
     return score
 
-
+@torch.no_grad()
 def fevaluate(model, data_loader, verbose=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Swithicing off gradient calculation to save memory
-    torch.no_grad()
     # Switch to eval mode so that layers like Dropout function correctly
     model.eval()
-
     metric_names = ['Loss',
                     'Accuracy',
                     'Balanced Accuracy',
