@@ -4,15 +4,14 @@ import torch.optim as optim
 from torch.nn import Module
 import numpy as np
 import os
-from utils import copy_model, create_model, get_prune_summary, train, ftrain, evaluate, fevaluate, train, ftrain, evaluate, fevaluate, fprune_fixed_amount, prune_fixed_amount, copy_model, create_model, get_prune_summary, log_obj
+from utils import copy_model, create_model, get_prune_summary, train, ftrain, \
+    evaluate, fevaluate, train, ftrain, evaluate, fevaluate, fprune_fixed_amount,\
+    prune_fixed_amount, copy_model, create_model, get_prune_summary, log_obj,summarize_prune
 import numpy as np
 from typing import Dict
 import copy
 import math
 import wandb
-# from util import train, ftrain, evaluate, fevaluate, fprune_fixed_amount, fprune_fixed_amount_res, prune_fixed_amount, copy_model, \
-# #   create_model, get_prune_summary, log_obj, merge_models, get_prune_summary_res
-
 
 torch.manual_seed(42)
 np.random.seed(42)
@@ -38,43 +37,68 @@ class Client():
         """
             Interface to Server
         """
-        print(f"\n\n{'-'*20}Client:{self.client_id} UPDATE{'-'*20}\n\n")
-        self.elapsed_comm_rounds += 1
-        num_pruned, num_params = get_prune_summary(self.model)
+        print(f"----------Client:{self.client_id} Update---------------------")
+
+        # evaluate globalModel on local data
+        # if accuracy < eita proceed as straggler else LH finder
+        eval_score = self.eval(self.globalModel)
+            
+        # get pruning summary for globalModel
+        num_pruned, num_params = summarize_prune(
+            self.globalModel, name='weight')
         cur_prune_rate = num_pruned / num_params
 
-        eval_score = self.eval(self.globalModel)
-        wandb.log({f"{self.client_id}_eita": self.args.eita})
         if eval_score["Accuracy"][0] > self.args.eita:
+            #--------------------Lottery Finder-----------------#
+
+
+
+            # expected final pruning % of local model
+            # prune model by prune_rate - current_prune_rate
+            # every iteration pruning should be increase by prune_step if viable
             prune_rate = min(cur_prune_rate + self.args.prune_step,
                              self.args.prune_percent)
-            ## prune by prune_rate -current_prune_rate
-            self.prune(self.globalModel, prune_rate - cur_prune_rate)
+            self.prune(self.globalModel,
+                       prune_rate=prune_rate - cur_prune_rate)
+            self.prune_rates[self.elapsed_comm_rounds] = prune_rate
+            # reinit the model by global_initial_model params
+            # TODO: check reinit function
             self.model = copy_model(self.global_initModel,
                                     self.args.dataset,
                                     self.args.arch,
-                                    dict(self.globalModel.named_buffers()))
-            
-            wandb.log({f"{self.client_id}_cur_prune_rate": cur_prune_rate})
-            wandb.log({f"{self.client_id}_prune_rate": prune_rate})
+                                    source_buff= dict(self.globalModel.named_buffers()))
+
+            # eita reinitialized to original val
             self.args.eita = self.args.eita_hat
 
         else:
+            #---------------------Straggler-----------------------------#
+            # eita = eita*alpha
             self.args.eita *= self.args.alpha
-            self.model = copy_model(self.globalModel,
-                                    self.args.dataset,
-                                    self.args.arch)
+            self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
+            # copy globalModel
+            self.model = self.globalModel
 
         #-----------------------TRAINING LOOOP ------------------------#
+        # train both straggler and LH finder
+        self.model.train()
         self.train(self.elapsed_comm_rounds)
+
         self.eval_score = self.eval(self.model)
 
-        for key,thing in self.eval_score.items():
-          if(isinstance(thing,list)):
-            wandb.log({f"{self.client_id}_{key}": thing[0]})
-          else:
-            wandb.log({f"{self.client_id}_{key}": thing.item()})
-        self.save(self.model)
+        wandb.log({f"{self.client_id}_cur_prune_rate": cur_prune_rate})
+        wandb.log({f"{self.client_id}_eita": self.args.eita})
+
+        for key, thing in self.eval_score.items():
+            if(isinstance(thing, list)):
+                wandb.log({f"{self.client_id}_{key}": thing[0]})
+            else:
+                wandb.log({f"{self.client_id}_{key}": thing.item()})
+
+        if (self.elapsed_comm_rounds+1) % self.args.save_freq == 0:
+            self.save(self.model)
+
+        self.elapsed_comm_rounds += 1
 
     def train(self, round_index):
         """
@@ -107,7 +131,7 @@ class Client():
 
     def prune(self, model, prune_rate, *args, **kwargs):
         """
-            Prune self.model
+            Prune model
         """
         fprune_fixed_amount(model, prune_rate,  # prune_step,
                             verbose=self.args.prune_verbosity)
@@ -117,7 +141,8 @@ class Client():
             Download global model from server
         """
         self.globalModel = globalModel
-        self.global_initModel = global_initModel
+        if global_initModel is not None:
+            self.global_initModel = global_initModel
 
     def eval(self, model):
         """

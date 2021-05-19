@@ -57,8 +57,8 @@ def build_args(arch='mlp',
                prune_threshold=0.5,
                globalPrune=False,
                report_verbosity=True,
-               global_prune_freq=40
-               ):
+               global_prune_freq=40,
+               save_freq = 1):
 
     args = type('', (), {})()
     args.arch = arch
@@ -89,6 +89,7 @@ def build_args(arch='mlp',
     args.globalPrune = globalPrune
     args.report_verbosity = report_verbosity
     args.global_prune_freq = global_prune_freq
+    args.save_freq = save_freq
     return args
 
 
@@ -99,8 +100,8 @@ CIFAR10_experiments = {
                    server=Server,
                    dataset='cifar10',
                    avg_logic='standalone',
-                   num_clients=5,
-                   comm_rounds=400,
+                   num_clients=2,
+                   comm_rounds=10,
                    frac=1,
                    prune_step=0.2,
                    prune_percent=0.8,
@@ -114,13 +115,14 @@ CIFAR10_experiments = {
                    eita_hat=0.5,
                    eita=0.5,
                    alpha=0.75,
-                   prune_threshold=0.0125,
+                   prune_threshold=0.015,
                    report_verbosity=False,
-                   train_verbosity=True,
-                   test_verbosity=True,
+                   train_verbosity=False,
+                   test_verbosity=False,
                    globalPrune=True,
                    prune_verbosity=True,
-                   global_prune_freq=40)
+                   global_prune_freq=40,
+                   save_freq = 1)
 }
 
 if __name__ == "__main__":

@@ -24,8 +24,8 @@ class GlobalPruner(prune.BasePruningMethod):
         large_weight_mask = torch.gt(torch.abs(t), self.threshold).view(-1)
         large_mask_signs = self.get_signs_from_tensor(t)
 
-        mask.view(-1)[:] = mask.view(-1)*((~(large_mask_signs ^
-                                             self.original_signs))*(large_weight_mask))
+        mask.view(-1)[:] *= ((~(large_mask_signs ^
+                                self.original_signs))*(large_weight_mask))
 
         return mask
 
@@ -54,7 +54,7 @@ def super_prune(model, init_model, name="weight", threshold=0.2, verbose=True):
     for idx, (param, name) in enumerate(params):
         orig_params = getattr(init_params[idx][0], name)
         if hasattr(param, 'weight_mask'):
-            mask = (torch.gt(torch.abs(getattr(param, name)), 0))
+            mask = getattr(param, 'weight_mask')
             masked_params = orig_params[mask.to(torch.bool)]
             globalPrunerStructured(param, "weight", threshold, masked_params)
         else:

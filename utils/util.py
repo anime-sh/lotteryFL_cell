@@ -18,7 +18,6 @@ np.random.seed(0)
 
 def fed_avg(models, dataset, arch, data_nums):
     print("IN FED_AVG MODE\n", flush=True)
-    # copy_model(server_model, dataset, arch, source_buff=dict(server_model.named_buffers()))
     new_model = create_model(dataset, arch)
     num_models = len(models)
     num_data_total = sum(data_nums)
@@ -46,10 +45,10 @@ def merge_models(models, dataset, arch, tally, round_index):
     print("MERGING MODELS\n", flush=True)
     # copy_model(server_model, dataset, arch, source_buff=dict(server_model.named_buffers()))
     new_model = create_model(dataset, arch)
-    #new_model = copy_model(models[round_index], dataset, arch)
+    # new_model = copy_model(models[round_index], dataset, arch)
     num_models = len(models)
-    #num_data_total = sum(data_nums)
-    #data_nums = data_nums / num_data_total
+    # num_data_total = sum(data_nums)
+    # data_nums = data_nums / num_data_total
     with torch.no_grad():
         # Getting all the weights and masks from original models
         weights, masks = [], []
@@ -67,12 +66,12 @@ def merge_models(models, dataset, arch, tally, round_index):
             tallysum = 0
             for i in range(round_index-1):
                 if tally[i] != 0.0:
-                    #weighted_param = torch.mul(weights[i][name], data_nums[i])
+                    # weighted_param = torch.mul(weights[i][name], data_nums[i])
                     weighted_param = torch.mul(weights[i][name], i+1)
                     param.data.copy_(param.data + weighted_param)
                     tallysum += (i+1)
         print(sum(tally)+1)
-        #tallysum /= 5
+        # tallysum /= 5
         avg = torch.div(param.data, tallysum+round_index+1)
         param.data.copy_(avg)
     return new_model
@@ -100,7 +99,7 @@ def lottery_fl_v2(server_model, models, dataset, arch, data_nums):
         # Averaging weights
         for name, param in new_model.named_parameters():
             for i in range(num_models):
-                #parameters_to_prune, num_global_weights, _ = get_prune_params(models[i])
+                # parameters_to_prune, num_global_weights, _ = get_prune_params(models[i])
 
                 model_masks = masks[i]
 
@@ -114,7 +113,7 @@ def lottery_fl_v2(server_model, models, dataset, arch, data_nums):
                     # print(e)
                     pass
                 weighted_param = weights[i][name]
-                #weighted_param = torch.mul(weights[i][name], data_nums[i])
+                # weighted_param = torch.mul(weights[i][name], data_nums[i])
                 param.data.copy_(param.data + weighted_param)
             avg = torch.div(param.data, num_models)
             param.data.copy_(avg)
@@ -224,7 +223,7 @@ def average_weights_masks(models, dataset, arch):
                 weighted_param = weights[i][name]
                 param.data.copy_(param.data + weighted_param)
             avg = torch.div(param.data, num_models)
-            #avg = torch.div(param.data, num_data_total)
+            # avg = torch.div(param.data, num_data_total)
             param.data.copy_(avg)
         # SET masks back to 1 for global
         for name, buffer in new_model.named_buffers():
@@ -232,8 +231,8 @@ def average_weights_masks(models, dataset, arch):
                 # weighted_masks = torch.mul(masks[i][name], data_nums[i])
                 weighted_masks = masks[i][name]
                 buffer.data.copy_(buffer.data + weighted_masks)
-             #torch.mul(weights[i][name], data_nums[i])
-            #avg = torch.ones_like(buffer.data)
+             # torch.mul(weights[i][name], data_nums[i])
+            # avg = torch.ones_like(buffer.data)
 
             # The code below clips all the values to [0.0, 1.0] of the new model.
             # This might seems trivial, but if you don't do this, you will get
@@ -244,8 +243,8 @@ def average_weights_masks(models, dataset, arch):
             avg = torch.div(buffer.data, num_models)
             avg = torch.ceil(avg)
 
-            #avg = torch.clamp(avg, 0.0, 1.0)
-            #avg = torch.round(avg)
+            # avg = torch.clamp(avg, 0.0, 1.0)
+            # avg = torch.round(avg)
             buffer.data.copy_(avg)
     return new_model
 
@@ -259,8 +258,8 @@ def copy_model(model, dataset, arch, source_buff=None):
     for name, buffer in new_model.named_buffers():
         buffer.data.copy_(source_buffers[name])
 
-    #prune.random_unstructured(new_model, name="weight", amount=0.0)
-    #prune_fixed_amount(new_model, 0, verbose=False)
+    # prune.random_unstructured(new_model, name="weight", amount=0.0)
+    # prune_fixed_amount(new_model, 0, verbose=False)
 
     return new_model
 
@@ -273,7 +272,7 @@ def create_model(dataset_name, model_type) -> torch.nn.Module:
         # print("MNIST")
     elif dataset_name == "cifar10":
         from model.cifar10 import mlp, cnn, resnet
-        #print("Got CIFAR10")
+        # print("Got CIFAR10")
 
     else:
         print("You did not enter the name of a supported architecture for this dataset")
@@ -373,7 +372,7 @@ def ftrain(model,
     EPS = 1e-6
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # model.to(device)
-    #device = torch.device("cpu")
+    # device = torch.device("cpu")
     loss_function = nn.CrossEntropyLoss()
     opt = optim.Adam(model.parameters(), lr=lr)
     num_batch = len(train_loader)
@@ -493,11 +492,11 @@ def fevaluate(model, data_loader, verbose=True):
     for i, (x, ytrue) in progress_bar:
         classtypes.add(int(ytrue[0]))
         x = x.to(device)
-        #ytrue = ytrue.to(device)
+        # ytrue = ytrue.to(device)
         yraw = model(x)
-        #yraw = yraw.to(device)
+        # yraw = yraw.to(device)
         _, ypred = torch.max(yraw, 1)
-        #ypred = ypred.to(device)
+        # ypred = ypred.to(device)
 
         score = calculate_metrics(score, ytrue, yraw.cpu(), ypred.cpu())
 
@@ -603,7 +602,7 @@ def fprune_fixed_amount_res(model, amount, verbose=True, glob=True):
         for i, (m, n) in enumerate(parameters_to_prune):
             prune.l1_unstructured(m, name=n, amount=math.floor(
                 amount * layers_w_count[i][1]))
-    #masks = dict(model.named_buffers())['weight_mask']
+    # masks = dict(model.named_buffers())['weight_mask']
     # for i, (named, param) in enumerate(model.named_parameters()):
     #    #for name, param in namedp:
     #    param.data.copy_(param.data*masks[i])
@@ -649,33 +648,31 @@ def fprune_fixed_amount(model, amount, verbose=True, glob=True):
         for i, (m, n) in enumerate(parameters_to_prune):
             prune.l1_unstructured(m, name=n, amount=math.floor(
                 amount * layers_w_count[i][1]))
-    #masks = dict(model.named_buffers())['weight_mask']
-    # for i, (named, param) in enumerate(model.named_parameters()):
-    #    #for name, param in namedp:
-    #    param.data.copy_(param.data*masks[i])
 
-    num_global_zeros, num_layer_zeros, num_layer_weights = 0, 0, 0
-    global_prune_percent, layer_prune_percent = 0, 0
-    prune_stat = {'Layers': [],
-                  'Weight Name': [],
-                  'Percent Pruned': [],
-                  'Total Pruned': []}
-
-    # Pruning is done in-place, thus parameters_to_prune is updated
-    for layer, weight_name in parameters_to_prune:
-
-        num_layer_zeros = torch.sum(getattr(layer, weight_name) == 0.0).item()
-        num_global_zeros += num_layer_zeros
-        num_layer_weights = torch.numel(getattr(layer, weight_name))
-        layer_prune_percent = num_layer_zeros / num_layer_weights * 100
-        prune_stat['Layers'].append(layer.__str__())
-        prune_stat['Weight Name'].append(weight_name)
-        prune_stat['Percent Pruned'].append(
-            f'{num_layer_zeros} / {num_layer_weights} ({layer_prune_percent:.5f}%)')
-        prune_stat['Total Pruned'].append(f'{num_layer_zeros}')
-
-    global_prune_percent = num_global_zeros / num_global_weights
     if verbose:
+        num_global_zeros, num_layer_zeros, num_layer_weights = 0, 0, 0
+        global_prune_percent, layer_prune_percent = 0, 0
+        prune_stat = {'Layers': [],
+                      'Weight Name': [],
+                      'Percent Pruned': [],
+                      'Total Pruned': []}
+
+        # Pruning is done in-place, thus parameters_to_prune is updated
+        for layer, weight_name in parameters_to_prune:
+
+            num_layer_zeros = torch.sum(
+                getattr(layer, weight_name) == 0.0).item()
+            num_global_zeros += num_layer_zeros
+            num_layer_weights = torch.numel(getattr(layer, weight_name))
+            layer_prune_percent = num_layer_zeros / num_layer_weights * 100
+            prune_stat['Layers'].append(layer.__str__())
+            prune_stat['Weight Name'].append(weight_name)
+            prune_stat['Percent Pruned'].append(
+                f'{num_layer_zeros} / {num_layer_weights} ({layer_prune_percent:.5f}%)')
+            prune_stat['Total Pruned'].append(f'{num_layer_zeros}')
+
+        global_prune_percent = num_global_zeros / num_global_weights
+
         print('Pruning Summary', flush=True)
         print(tabulate(prune_stat, headers='keys'), flush=True)
         print(
@@ -700,10 +697,23 @@ def get_prune_summary_res(model):
             attr *= masks[list(masks)[i]]
         except Exception as e:
             print(e)
-
         num_global_zeros += torch.sum(attr == 0.0).item()
-
     return num_global_zeros, num_global_weights
+
+
+@torch.no_grad()
+def summarize_prune(model: nn.Module, name: str = 'weight') -> tuple:
+    """
+        returns (pruned_params,total_params)
+    """
+    num_pruned = 0
+    params, num_global_weights, _ = get_prune_params(model)
+    for param, _ in params:
+        data = getattr(param, name)
+        if hasattr(param, name+'_mask'):
+            data *= getattr(param, name+'_mask')
+        num_pruned += int(torch.sum(data == 0.0).item())
+    return (num_pruned, num_global_weights)
 
 
 def get_prune_summary(model):
