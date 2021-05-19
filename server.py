@@ -47,7 +47,6 @@ class Server():
 
     def update(
         self,
-        prune,
         *args,
         **kwargs
     ):
@@ -61,7 +60,7 @@ class Server():
             print(f'| Communication Round: {i+1}  | ', flush=True)
             print('-----------------------------', flush=True)
 
-            if self.elapsed_comm_rounds % 10 == 0 and prune == True:
+            if self.elapsed_comm_rounds % 10 == 0 and self.args.globalPrune == True:
                 print("|----------Pruning Global Model-----------|")
                 self.prune(self.model)
                 ## Reinitialize model with initial params

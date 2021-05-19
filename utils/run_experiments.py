@@ -11,9 +11,9 @@ from provided_code.datasource import get_data
 import wandb
 
 def log_experiment(server, clients, exp_name, exp_settings):
-    print("###########################################################")
-    print(f"server acc {server.accuracies}")
-    print("###########################################################")
+    # print("###########################################################")
+    # print(f"server acc {server.accuracies}")
+    # print("###########################################################")
     for i, c in enumerate(clients):
         print(f"client #{i} accuracies\n{c.accuracies}")
         print(f"client #{i} losses\n{c.losses}")
@@ -75,15 +75,15 @@ def log_experiment(server, clients, exp_name, exp_settings):
     with open(f'{save_path}/selected_client_tally.npy', 'wb') as f:
         np.save(f, server.selected_client_tally)
 
-    with open(f'{save_path}/server_accs.npy', 'wb') as f:
-        server_accs = np.array(server.accuracies)
-        np.save(f, server_accs)
+    # with open(f'{save_path}/server_accs.npy', 'wb') as f:
+    #     server_accs = np.array(server.accuracies)
+    #     np.save(f, server_accs)
 
-    fig, axs = plt.subplots(1, 1)
-    axs.plot(range(num_rounds), server_accs)
-    axs.set_title("Rounds vs Server Accuracies")
-    axs.set_ylabel("Rounds")
-    fig.savefig(f"{save_path}/rounds_vs_server_accs.png")
+    # fig, axs = plt.subplots(1, 1)
+    # axs.plot(range(num_rounds), server_accs)
+    # axs.set_title("Rounds vs Server Accuracies")
+    # axs.set_ylabel("Rounds")
+    # fig.savefig(f"{save_path}/rounds_vs_server_accs.png")
 
     fig, axs = plt.subplots(1, 1)
     axs.plot(range(num_rounds), mu_client_pr_rate_by_r)
@@ -186,7 +186,7 @@ def run_experiment(args, overrides):
     server = args.server(args, clients=np.array(
         clients, dtype=np.object), test_loader=global_test_loader)
     print("Now running the algorithm")
-    server.update(prune = True)  # important
+    server.update()
     return server, clients
 
 
