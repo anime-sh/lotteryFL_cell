@@ -76,6 +76,7 @@ class Client():
             else:
                 #---------------------Straggler-----------------------------#
                 # eita = eita*alpha
+                self.cur_prune_rate = 0.00
                 self.args.eita *= self.args.alpha
                 self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # copy globalModel
