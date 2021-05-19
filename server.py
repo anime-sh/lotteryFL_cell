@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, log_obj
+from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, log_obj,prune_fixed_amount
 import numpy as np
 import torch.nn.utils.prune as prune
 from typing import List, Dict, Tuple
@@ -118,6 +118,11 @@ class Server():
                     name="weight",
                     threshold=self.args.prune_threshold,
                     verbose=self.args.prune_verbosity)
+        params,_,_  = get_prune_params(self.model)
+        for (param,name) in params:
+            if(hasattr(param,name+'_mask')):
+                prune.remove(param,name)
+        prune_fixed_amount(self.model,amount=0.00,verbose=False)
 
     def eval(
         self,
