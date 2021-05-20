@@ -1,3 +1,8 @@
+import wandb
+import client
+from typing import List, Dict, Tuple
+import torch.nn.utils.prune as prune
+import numpy as np
 from utils import create_model, copy_model
 import random
 import os
@@ -6,13 +11,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, log_obj
-import numpy as np
-import torch.nn.utils.prune as prune
-from typing import List, Dict, Tuple
-import client
-import wandb
-
+from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, \
+    log_obj, prune_fixed_amount, fed_avg
 
 
 class Server():
@@ -32,11 +32,12 @@ class Server():
         self.num_clients = len(self.clients)
         self.args = args
         self.elapsed_comm_rounds = 0
-        self.test_loader = test_loader
         self.init_model = create_model(args.dataset, args.arch)
         self.model = copy_model(self.init_model, args.dataset, args.arch)
-        self.accuracies = np.zeros((args.comm_rounds))
-        self.client_accuracies = np.zeros((args.comm_rounds,self.num_clients))
+        self.client_accuracies = np.zeros((self.num_clients, args.comm_rounds))
+        self.client_data_num = [len(client.train_loader)
+                                for client in self.clients]
+        self.client_data_num = np.array(self.client_data_num)
 
     def aggr(
         self,
@@ -44,13 +45,17 @@ class Server():
         *args,
         **kwargs
     ):
-        return average_weights_masks(models=models,
-                                     dataset=self.args.dataset,
-                                     arch=self.args.arch)
+        avg_model = fed_avg(models=models,
+                            dataset=self.args.dataset,
+                            arch=self.args.arch,
+                            data_nums=self.client_data_num)
+        source_buffers = dict(self.model.named_buffers())
+        for name, buffer in avg_model.named_buffers():
+            buffer.data.copy_(source_buffers[name])
+        return avg_model
 
     def update(
         self,
-        prune,
         *args,
         **kwargs
     ):
@@ -58,41 +63,51 @@ class Server():
             Interface to server and clients
         """
 
-        self.model.train()
         for i in range(self.args.comm_rounds):
-            self.elapsed_comm_rounds += 1
-            print('-----------------------------', flush=True)
-            print(f'| Communication Round: {i+1}  | ', flush=True)
-            print('-----------------------------', flush=True)
+            
+            with torch.no_grad():
+                print('-----------------------------', flush=True)
+                print(f'| Communication Round: {i+1}  | ', flush=True)
+                print('-----------------------------', flush=True)
 
-            if self.elapsed_comm_rounds % 10 == 0 and prune == True:
-                self.prune(self.model)
-                print("PRUNED GLOBAL MODEL @ SERVER")
-            # broadcast model
-            self.upload(self.model)
-            #-------------------------------------------------#
-            clients_idx = np.random.choice(
-                self.num_clients, int(self.args.frac * self.num_clients),replace = False)
-            clients = self.clients[clients_idx]
-            #-------------------------------------------------#
+                if (self.elapsed_comm_rounds %
+                    self.args.global_prune_freq) == 0 \
+                        and self.args.globalPrune == True:
+
+                    # Implement global pruning by pruning aggregated model
+                    # and then copy initial_params to parameters with pruned model's buffer
+                    self.prune(self.model)
+                    self.model = copy_model(self.init_model,
+                                            self.args.dataset,
+                                            self.args.arch,
+                                            source_buff=dict(self.model.named_buffers()))
+
+                # upload model,iniitial_model(optional)
+                self.upload()
+
+                # select fraction clients for training (uniform sampling)
+                clients_idx = np.random.choice(
+                    self.num_clients, int(self.args.frac * self.num_clients), replace=False)
+                clients = self.clients[clients_idx]
+
+            # update client models
             for client in clients:
-                client.update(self.elapsed_comm_rounds)
-            #-------------------------------------------------#
-            models, accs = self.download(clients)
-            self.client_accuracies[i][clients_idx] = accs
-            self.model = self.aggr(models)
-            eval_score = self.eval(self.model)
-            self.accuracies[i] = eval_score["Accuracy"][0]
+                client.update()
 
-            print(f"{'-'*30} AVERAGE-ACCURACY {'-'*30}:{np.sum(accs)/len(clients_idx)}")
-            wandb.log({"client_avg_acc": np.sum(accs)/len(clients_idx)})
-            
-            for key,thing in eval_score.items():
-              if(isinstance(thing,list)):
-                wandb.log({f"server_{key}": thing[0]})
-              else:  
-                wandb.log({f"server_{key}": thing.item()})
-            
+            # download local models for selected clients
+            with torch.no_grad():
+                models, accs = self.download(clients)
+                self.client_accuracies[clients_idx, i] = accs[:]
+                # aggregate all models (fed-avg)
+                self.model = self.aggr(models)
+                del models
+                avg_accuracy = np.sum(accs)/len(clients_idx)
+                print('-----------------------------', flush=True)
+                print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
+                print('-----------------------------', flush=True)
+
+                wandb.log({"client_avg_acc": avg_accuracy})
+                self.elapsed_comm_rounds += 1
 
     def download(
         self,
@@ -144,13 +159,12 @@ class Server():
         """
         eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.report_verbose:
+        if self.args.report_verbosity:
             log_obj(eval_log_path1, self.model)
             log_obj(eval_log_path2, self.__dict__)
 
     def upload(
         self,
-        model,
         *args,
         **kwargs
     ) -> None:
@@ -159,9 +173,12 @@ class Server():
         """
 
         # TODO: parallelize upload to clients (broadcasting stratergy)
+        init_model = None if self.elapsed_comm_rounds != 0 \
+            else copy_model(self.init_model,
+                            self.args.dataset,
+                            self.args.arch)
         for client in self.clients:
-            model_copy = copy_model(model,
+            model_copy = copy_model(self.model,
                                     self.args.dataset,
-                                    self.args.arch
-                                    )
-            client.download(model_copy, self.init_model)
+                                    self.args.arch)
+            client.download(model_copy, init_model)

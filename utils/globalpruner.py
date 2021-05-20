@@ -23,8 +23,9 @@ class GlobalPruner(prune.BasePruningMethod):
         mask = default_mask.clone()
         large_weight_mask = torch.gt(torch.abs(t), self.threshold).view(-1)
         large_mask_signs = self.get_signs_from_tensor(t)
-        mask.view(-1)[:] = mask*((~(large_mask_signs ^
-                                    self.original_signs))*(large_weight_mask))
+
+        mask.view(-1)[:] *= ((~(large_mask_signs ^
+                                self.original_signs))*(large_weight_mask))
 
         return mask
 
@@ -45,28 +46,32 @@ def get_parameters(module, name="weight_orig") -> nn.Parameter:
             return params
 
 
-def super_prune(model, init_model, name="weight", threshold=0.2,verbose = True):
+def super_prune(model, init_model, name="weight", threshold=0.2, verbose=True):
 
     params, num_global_weights, layers_w_count = get_prune_params(model)
     init_params, _, _ = get_prune_params(init_model)
 
     for idx, (param, name) in enumerate(params):
-        orig_params = get_parameters(init_params[idx][0], "weight_orig")
-        orig_params = orig_params[param.weight_mask.to(torch.bool)]
-        globalPrunerStructured(param, "weight", threshold, orig_params)
-        
+        orig_params = getattr(init_params[idx][0], name)
+        if hasattr(param, 'weight_mask'):
+            mask = getattr(param, 'weight_mask')
+            masked_params = orig_params[mask.to(torch.bool)]
+            globalPrunerStructured(param, "weight", threshold, masked_params)
+        else:
+            globalPrunerStructured(param, "weight", threshold, orig_params)
 
     if verbose:
         num_global_zeros, num_layer_zeros, num_layer_weights = 0, 0, 0
         global_prune_percent, layer_prune_percent = 0, 0
         prune_stat = {'Layers': [],
-                    'Weight Name': [],
-                    'Percent Pruned': [],
-                    'Total Pruned': []}
+                      'Weight Name': [],
+                      'Percent Pruned': [],
+                      'Total Pruned': []}
 
         for layer, weight_name in params:
 
-            num_layer_zeros = torch.sum(getattr(layer, weight_name) == 0.0).item()
+            num_layer_zeros = torch.sum(
+                getattr(layer, weight_name) == 0.0).item()
             num_global_zeros += num_layer_zeros
             num_layer_weights = torch.numel(getattr(layer, weight_name))
             layer_prune_percent = num_layer_zeros / num_layer_weights * 100
@@ -77,10 +82,8 @@ def super_prune(model, init_model, name="weight", threshold=0.2,verbose = True):
             prune_stat['Total Pruned'].append(f'{num_layer_zeros}')
 
         global_prune_percent = num_global_zeros / num_global_weights
-        
+
         print('Pruning Summary', flush=True)
         print(tabulate(prune_stat, headers='keys'), flush=True)
         print(
             f'Percent Pruned Globally: {global_prune_percent:.2f}', flush=True)
-
-
