@@ -31,6 +31,7 @@ class Client():
         self.losses = np.zeros((args.comm_rounds, self.args.client_epoch))
         self.prune_rates = np.zeros(args.comm_rounds)
         self.cur_prune_rate = 0.00
+        self.eita = self.args.eita_hat
         assert self.model, "Something went wrong and the model cannot be initialized"
         #######
 
@@ -51,33 +52,30 @@ class Client():
             cur_prune_rate = num_pruned / num_params
 
 
-            if eval_score["Accuracy"][0] > self.args.eita:
+            if eval_score["Accuracy"][0] > self.eita:
                 #--------------------Lottery Finder-----------------#
                 # expected final pruning % of local model
                 # prune model by prune_rate - current_prune_rate
                 # every iteration pruning should be increase by prune_step if viable
-                prune_rate = min(self.cur_prune_rate + self.args.prune_step,
+                self.cur_prune_rate = min(self.cur_prune_rate + self.args.prune_step,
                                 self.args.prune_percent)
-                self.cur_prune_rate = prune_rate
-                if prune_rate > cur_prune_rate:
+                if self.cur_prune_rate > cur_prune_rate:
                     self.prune(self.globalModel,
-                            prune_rate=prune_rate - cur_prune_rate)
-                self.prune_rates[self.elapsed_comm_rounds] = prune_rate
-                # reinit the model by global_initial_model params
-                # TODO: check reinit function
+                            prune_rate=self.cur_prune_rate - cur_prune_rate)
+                self.prune_rates[self.elapsed_comm_rounds] = self.cur_prune_rate
                 self.model = copy_model(self.global_initModel,
                                         self.args.dataset,
                                         self.args.arch,
                                         source_buff=dict(self.globalModel.named_buffers()))
 
                 # eita reinitialized to original val
-                self.args.eita = self.args.eita_hat
+                self.eita = self.args.eita_hat
 
             else:
                 #---------------------Straggler-----------------------------#
                 # eita = eita*alpha
                 self.cur_prune_rate = 0.00
-                self.args.eita *= self.args.alpha
+                self.eita *= self.args.alpha
                 self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # copy globalModel
                 self.model = self.globalModel
@@ -89,7 +87,7 @@ class Client():
 
         with torch.no_grad():
             wandb.log({f"{self.client_id}_cur_prune_rate": self.cur_prune_rate})
-            wandb.log({f"{self.client_id}_eita": self.args.eita})
+            wandb.log({f"{self.client_id}_eita": self.eita})
 
             for key, thing in self.eval_score.items():
                 if(isinstance(thing, list)):
@@ -137,7 +135,7 @@ class Client():
             Prune model
         """
         fprune_fixed_amount(model, prune_rate,  # prune_step,
-                            verbose=self.args.prune_verbosity)
+                            verbose=self.args.prune_verbosity,glob = False)
     @torch.no_grad()
     def download(self, globalModel, global_initModel, *args, **kwargs):
         """

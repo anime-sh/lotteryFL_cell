@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, \
+from utils import get_prune_params,aggregate,evaluate, fevaluate, super_prune, \
     log_obj, prune_fixed_amount, fed_avg
 
 
@@ -45,7 +45,7 @@ class Server():
         *args,
         **kwargs
     ):
-        avg_model = fed_avg(models=models,
+        avg_model = aggregate(models=models,
                             dataset=self.args.dataset,
                             arch=self.args.arch,
                             data_nums=self.client_data_num)
