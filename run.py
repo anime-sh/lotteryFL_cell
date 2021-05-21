@@ -30,7 +30,7 @@ def random_seed(seed_value, use_cuda):
 random_seed(RANDOM_SEED, True)
 
 
-def  build_args(arch='mlp',
+def build_args(arch='mlp',
                dataset='mnist',
                data_split='non-iid',
                client=Client,
@@ -57,7 +57,7 @@ def  build_args(arch='mlp',
                globalPrune=False,
                report_verbosity=True,
                global_prune_freq=40,
-               save_freq = 1):
+               save_freq=1):
 
     args = type('', (), {})()
     args.arch = arch
@@ -98,17 +98,17 @@ CIFAR10_experiments = {
                    server=Server,
                    dataset='cifar10',
                    avg_logic='standalone',
-                   num_clients=2,
+                   num_clients=5,
                    comm_rounds=20,
                    frac=1,
-                   prune_step=0.2,
+                   prune_step=0.0,
                    prune_percent=0.8,
                    acc_thresh=0.5,
-                   client_epoch=10,
-                   batch_size = 32,
+                   client_epoch=5,
+                   batch_size=32,
                    lr=0.001,
                    rate_unbalance=1.0,
-                   n_samples = 200,
+                   n_samples=200,
                    n_class=5,
                    eita_hat=0.5,
                    alpha=0.8,
@@ -119,7 +119,7 @@ CIFAR10_experiments = {
                    globalPrune=False,
                    prune_verbosity=True,
                    global_prune_freq=40,
-                   save_freq = 1)
+                   save_freq=1)
 }
 
 if __name__ == "__main__":

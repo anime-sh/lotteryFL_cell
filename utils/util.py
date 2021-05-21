@@ -138,8 +138,6 @@ def aggregate(models,dataset,arch,data_nums):
         for i in range(num_models):
             weighted_param = torch.mul(weights[i][name.strip("_orig")],data_nums[i])
             param.data.copy_(param.data + weighted_param)
-        avg = torch.div(param.data, num_models)
-        param.data.copy_(avg)
     return new_model
 
 
