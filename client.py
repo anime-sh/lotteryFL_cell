@@ -143,8 +143,7 @@ class Client():
             Download global model from server
         """
         self.globalModel = globalModel
-        if global_initModel is not None:
-            self.global_initModel = global_initModel
+        self.global_initModel = global_initModel
 
     def eval(self, model):
         """
