@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, average_weights_masks, evaluate, fevaluate, super_prune, \
+from utils import get_prune_params, aggregate, evaluate, fevaluate, super_prune, \
     log_obj, prune_fixed_amount, fed_avg
 
 
@@ -35,20 +35,19 @@ class Server():
         self.init_model = create_model(args.dataset, args.arch)
         self.model = copy_model(self.init_model, args.dataset, args.arch)
         self.client_accuracies = np.zeros((self.num_clients, args.comm_rounds))
-        self.client_data_num = [len(client.train_loader)
-                                for client in self.clients]
-        self.client_data_num = np.array(self.client_data_num)
 
     def aggr(
         self,
         models,
+        clients,
         *args,
         **kwargs
     ):
-        avg_model = fed_avg(models=models,
-                            dataset=self.args.dataset,
-                            arch=self.args.arch,
-                            data_nums=self.client_data_num)
+        data_nums = np.array([len(client.train_loader) for client in clients])
+        avg_model = aggregate(models=models,
+                              dataset=self.args.dataset,
+                              arch=self.args.arch,
+                              data_nums=data_nums)
         source_buffers = dict(self.model.named_buffers())
         for name, buffer in avg_model.named_buffers():
             buffer.data.copy_(source_buffers[name])
@@ -64,7 +63,7 @@ class Server():
         """
 
         for i in range(self.args.comm_rounds):
-            
+
             with torch.no_grad():
                 print('-----------------------------', flush=True)
                 print(f'| Communication Round: {i+1}  | ', flush=True)
@@ -82,13 +81,13 @@ class Server():
                                             self.args.arch,
                                             source_buff=dict(self.model.named_buffers()))
 
-                # upload model,iniitial_model(optional)
-                self.upload()
-
                 # select fraction clients for training (uniform sampling)
                 clients_idx = np.random.choice(
                     self.num_clients, int(self.args.frac * self.num_clients), replace=False)
                 clients = self.clients[clients_idx]
+
+                # upload model,iniitial_model(optional)
+                self.upload(clients)
 
             # update client models
             for client in clients:
@@ -99,7 +98,7 @@ class Server():
                 models, accs = self.download(clients)
                 self.client_accuracies[clients_idx, i] = accs[:]
                 # aggregate all models (fed-avg)
-                self.model = self.aggr(models)
+                self.model = self.aggr(models,clients)
                 del models
                 avg_accuracy = np.sum(accs)/len(clients_idx)
                 print('-----------------------------', flush=True)
@@ -165,6 +164,7 @@ class Server():
 
     def upload(
         self,
+        clients,
         *args,
         **kwargs
     ) -> None:
@@ -173,11 +173,10 @@ class Server():
         """
 
         # TODO: parallelize upload to clients (broadcasting stratergy)
-        init_model = None if self.elapsed_comm_rounds != 0 \
-            else copy_model(self.init_model,
-                            self.args.dataset,
-                            self.args.arch)
-        for client in self.clients:
+        init_model = copy_model(self.init_model,
+                                self.args.dataset,
+                                self.args.arch)
+        for client in clients:
             model_copy = copy_model(self.model,
                                     self.args.dataset,
                                     self.args.arch)

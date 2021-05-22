@@ -31,6 +31,7 @@ class Client():
         self.losses = np.zeros((args.comm_rounds, self.args.client_epoch))
         self.prune_rates = np.zeros(args.comm_rounds)
         self.cur_prune_rate = 0.00
+        self.eita = self.args.eita_hat
         assert self.model, "Something went wrong and the model cannot be initialized"
         #######
 
@@ -50,33 +51,31 @@ class Client():
                 self.globalModel, name='weight')
             cur_prune_rate = num_pruned / num_params
 
-
-            if eval_score["Accuracy"][0] > self.args.eita:
+            if eval_score["Accuracy"][0] > self.eita:
                 #--------------------Lottery Finder-----------------#
                 # expected final pruning % of local model
                 # prune model by prune_rate - current_prune_rate
                 # every iteration pruning should be increase by prune_step if viable
-                prune_rate = min(self.cur_prune_rate + self.args.prune_step,
-                                self.args.prune_percent)
-                self.cur_prune_rate = prune_rate
-                if prune_rate > cur_prune_rate:
+                self.cur_prune_rate = min(self.cur_prune_rate + self.args.prune_step,
+                                          self.args.prune_percent)
+                if self.cur_prune_rate > cur_prune_rate:
                     self.prune(self.globalModel,
-                            prune_rate=prune_rate - cur_prune_rate)
-                self.prune_rates[self.elapsed_comm_rounds] = prune_rate
-                # reinit the model by global_initial_model params
-                # TODO: check reinit function
-                self.model = copy_model(self.global_initModel,
-                                        self.args.dataset,
-                                        self.args.arch,
-                                        source_buff=dict(self.globalModel.named_buffers()))
-
+                               prune_rate=self.cur_prune_rate - cur_prune_rate)
+                    self.prune_rates[self.elapsed_comm_rounds] = self.cur_prune_rate
+                    self.model = copy_model(self.global_initModel,
+                                            self.args.dataset,
+                                            self.args.arch,
+                                            source_buff=dict(self.globalModel.named_buffers()))
+                else:
+                    self.model = self.globalModel
                 # eita reinitialized to original val
-                self.args.eita = self.args.eita_hat
+                self.eita = self.args.eita_hat
 
             else:
                 #---------------------Straggler-----------------------------#
                 # eita = eita*alpha
-                self.args.eita *= self.args.alpha
+                self.cur_prune_rate = 0.00
+                self.eita *= self.args.alpha
                 self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # copy globalModel
                 self.model = self.globalModel
@@ -88,7 +87,7 @@ class Client():
 
         with torch.no_grad():
             wandb.log({f"{self.client_id}_cur_prune_rate": self.cur_prune_rate})
-            wandb.log({f"{self.client_id}_eita": self.args.eita})
+            wandb.log({f"{self.client_id}_eita": self.eita})
 
             for key, thing in self.eval_score.items():
                 if(isinstance(thing, list)):
@@ -129,22 +128,22 @@ class Client():
 
         self.losses[round_index:] = np.array(losses)
         self.accuracies[round_index:] = np.array(accuracies)
-    
+
     @torch.no_grad()
     def prune(self, model, prune_rate, *args, **kwargs):
         """
             Prune model
         """
         fprune_fixed_amount(model, prune_rate,  # prune_step,
-                            verbose=self.args.prune_verbosity)
+                            verbose=self.args.prune_verbosity, glob=True)
+
     @torch.no_grad()
     def download(self, globalModel, global_initModel, *args, **kwargs):
         """
             Download global model from server
         """
         self.globalModel = globalModel
-        if global_initModel is not None:
-            self.global_initModel = global_initModel
+        self.global_initModel = global_initModel
 
     def eval(self, model):
         """
@@ -159,7 +158,7 @@ class Client():
                             f'eval_score_round{self.elapsed_comm_rounds}.pickle'
             log_obj(eval_log_path, eval_score)
         return eval_score
-    
+
     def save(self, *args, **kwargs):
         """
             Save model,meta-info,states
@@ -169,7 +168,7 @@ class Client():
             eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
             log_obj(eval_log_path1, self.model)
             log_obj(eval_log_path2, self.__dict__)
-    
+
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """
             Upload self.model

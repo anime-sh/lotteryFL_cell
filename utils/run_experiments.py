@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 from utils import create_model
 import torch
 import random
-from provided_code.datasource import get_data
+from provided_code.datasource import get_data, DataLoaders
 import wandb
+
 
 def log_experiment(server, clients, exp_name, exp_settings):
     # print("###########################################################")
@@ -171,10 +172,16 @@ def run_experiment(args, overrides):
         setattr(args, k, v)
     args.log_folder = overrides['log_folder'] + '/' + overrides['exp_name']
     print("Started getting data")
-    (client_loaders, val_loaders, test_loader), global_test_loader =\
-        get_data(args.num_clients,
-                 args.dataset, mode=args.data_split, batch_size=args.batch_size,
-                 num_train_samples_perclass=args.n_samples, n_class=args.n_class, rate_unbalance=args.rate_unbalance)
+    client_loaders, test_loader, \
+        global_test_loader = DataLoaders(num_users=args.num_clients,
+                                         dataset_name=args.dataset,
+                                         n_class=args.n_class,
+                                         nsamples=args.n_samples,
+                                         mode=args.data_split,
+                                         batch_size=args.batch_size,
+                                         rate_unbalance=args.rate_unbalance)
+    # print(client_loaders)
+    # exit()
     print("Finished getting data")
     clients = []
     print("Initializing clients")
@@ -182,16 +189,16 @@ def run_experiment(args, overrides):
         print("Client " + str(i))
         clients.append(args.client(
             args, client_loaders[i], test_loader[i], client_id=i))
-
-    server = args.server(args, clients=np.array(
-        clients, dtype=np.object), test_loader=global_test_loader)
+    server = args.server(args,
+                         clients=np.array(clients, dtype=np.object),
+                         test_loader=global_test_loader)
     print("Now running the algorithm")
     server.update()
     return server, clients
 
 
 def run_experiments(experiments, overrides):
-    wandb.login(key='d4861008cc913fe8d72d9d5927aa7da69b7e26cb')
+    wandb.login(key='706d0c3b51a53b2786cec07877801bbd1bfc19c0')
     run_times = {}
     start = time.time()
     for exp_name, exp_settings in experiments.items():

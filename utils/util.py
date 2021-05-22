@@ -109,8 +109,6 @@ def lottery_fl_v2(server_model, models, dataset, arch, data_nums):
                     weights[i][name] = np.where(
                         weights[i][name] != 0, weights[i][name], server_weights[name])
                 except Exception as e:
-                    # print("exceptions")
-                    # print(e)
                     pass
                 weighted_param = weights[i][name]
                 # weighted_param = torch.mul(weights[i][name], data_nums[i])
@@ -120,9 +118,32 @@ def lottery_fl_v2(server_model, models, dataset, arch, data_nums):
     return new_model
 
 
+@torch.no_grad()
+def aggregate(models,dataset,arch,data_nums):
+    new_model = create_model(dataset, arch)
+    num_models = len(models)
+    num_data_total = sum(data_nums)
+    data_nums = data_nums / num_data_total
+    weights, masks = [], []
+    for i in range(num_models):
+        new_c_model = copy_model(models[i], dataset, arch)
+        parameters_to_prune, _, _ = get_prune_params(new_c_model)
+        for m, n in parameters_to_prune:
+            prune.remove(m, n)
+        weights.append(dict(new_c_model.named_parameters()))
+
+    for name, param in new_model.named_parameters():
+        param.data.copy_(torch.zeros_like(param.data))
+    for name, param in new_model.named_parameters():
+        for i in range(num_models):
+            weighted_param = torch.mul(weights[i][name.strip("_orig")],data_nums[i])
+            param.data.copy_(param.data + weighted_param)
+    return new_model
+
+
 def lottery_fl_v3(server_model, models, dataset, arch, data_nums):
     print("IN LOT FLv3 MODE\n", flush=True)
-    # copy_model(server_model, dataset, arch, source_buff=dict(server_model.named_buffers()))
+
     new_model = create_model(dataset, arch)
     num_models = len(models)
     num_data_total = sum(data_nums)
@@ -705,10 +726,9 @@ def summarize_prune(model: nn.Module, name: str = 'weight') -> tuple:
     num_pruned = 0
     params, num_global_weights, _ = get_prune_params(model)
     for param, _ in params:
-        data = getattr(param, name)
         if hasattr(param, name+'_mask'):
-            data *= getattr(param, name+'_mask')
-        num_pruned += int(torch.sum(data == 0.0).item())
+            data = getattr(param, name+'_mask')
+            num_pruned += int(torch.sum(data == 0.0).item())
     return (num_pruned, num_global_weights)
 
 
