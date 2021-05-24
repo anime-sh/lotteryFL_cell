@@ -30,7 +30,7 @@ class GlobalPruner(prune.BasePruningMethod):
         large_weight_mask = t.mul(self.original_signs)
         # sets negative values to 0
         large_weight_mask_ranked = F.relu(large_weight_mask)
-        nparams_toprune = torch.numel(t) * self.threshold  # get this val
+        nparams_toprune =int ( torch.numel(t) * self.threshold ) # get this val
         bottom_k = torch.topk(large_weight_mask_ranked.view(-1), k=nparams_toprune,largest=False)
         mask.view(-1)[bottom_k.indices] = 0
         # mask = torch.mul(mask, std)
