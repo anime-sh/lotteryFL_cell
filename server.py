@@ -69,7 +69,7 @@ class Server():
                 print(f'| Communication Round: {i+1}  | ', flush=True)
                 print('-----------------------------', flush=True)
 
-                if (self.elapsed_comm_rounds %
+                if ((1+self.elapsed_comm_rounds) %
                     self.args.global_prune_freq) == 0 \
                         and self.args.globalPrune == True:
 
