@@ -98,7 +98,7 @@ CIFAR10_experiments = {
                    server=Server,
                    dataset='cifar10',
                    avg_logic='standalone',
-                   num_clients=5,
+                   num_clients=2,
                    comm_rounds=20,
                    frac=1,
                    prune_step=0.0,
@@ -112,13 +112,13 @@ CIFAR10_experiments = {
                    n_class=5,
                    eita_hat=0.5,
                    alpha=0.8,
-                   prune_threshold=0.015,
+                   prune_threshold=0.15,
                    report_verbosity=False,
                    train_verbosity=False,
                    test_verbosity=False,
-                   globalPrune=False,
+                   globalPrune=True,
                    prune_verbosity=True,
-                   global_prune_freq=40,
+                   global_prune_freq=1,
                    save_freq=1)
 }
 
