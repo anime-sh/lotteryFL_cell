@@ -92,16 +92,16 @@ def build_args(arch='mlp',
 
 
 CIFAR10_experiments = {
-    'CIFAR10_with_server_side_pruning':
+    'CIFAR10_with_server_side_pruning_supermask':
         build_args(arch='cnn',
                    client=Client,
                    server=Server,
                    dataset='cifar10',
                    avg_logic='standalone',
-                   num_clients=2,
-                   comm_rounds=20,
+                   num_clients=5,
+                   comm_rounds=50,
                    frac=1,
-                   prune_step=0.0,
+                   prune_step=0.2,
                    prune_percent=0.8,
                    acc_thresh=0.5,
                    client_epoch=5,
@@ -112,13 +112,13 @@ CIFAR10_experiments = {
                    n_class=5,
                    eita_hat=0.5,
                    alpha=0.8,
-                   prune_threshold=0.15,
+                   prune_threshold=0.05,
                    report_verbosity=False,
                    train_verbosity=False,
                    test_verbosity=False,
                    globalPrune=True,
                    prune_verbosity=True,
-                   global_prune_freq=1,
+                   global_prune_freq=10,
                    save_freq=1)
 }
 
