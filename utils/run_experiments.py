@@ -198,7 +198,7 @@ def run_experiment(args, overrides):
 
 
 def run_experiments(experiments, overrides):
-    wandb.login(key='706d0c3b51a53b2786cec07877801bbd1bfc19c0')
+    wandb.login(key='d4861008cc913fe8d72d9d5927aa7da69b7e26cb')
     run_times = {}
     start = time.time()
     for exp_name, exp_settings in experiments.items():

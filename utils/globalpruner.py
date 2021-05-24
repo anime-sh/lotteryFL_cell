@@ -17,16 +17,23 @@ class GlobalPruner(prune.BasePruningMethod):
         self.original_signs = self.get_signs_from_tensor(orig_weights)
 
     def get_signs_from_tensor(self, t: torch.Tensor):
-        return torch.gt(t, -0.0000000).view(-1)
+        # return torch.gt(t, -0.0000000).view(-1)
+        return torch.sign(t).view(-1)
 
     def compute_mask(self, t, default_mask):
         mask = default_mask.clone()
-        large_weight_mask = torch.gt(torch.abs(t), self.threshold).view(-1)
-        large_mask_signs = self.get_signs_from_tensor(t)
-
-        mask.view(-1)[:] *= ((~(large_mask_signs ^
-                                self.original_signs))*(large_weight_mask))
-
+        # large_weight_mask = torch.gt(torch.abs(t), self.threshold).view(-1)
+        # large_mask_signs = self.get_signs_from_tensor(t)
+        # mask.view(-1)[:] *= ((~(large_mask_signs ^
+        #                         self.original_signs))*(large_weight_mask))
+        # std = torch.std(t)
+        large_weight_mask = t.mul(self.original_signs)
+        # sets negative values to 0
+        large_weight_mask_ranked = F.relu(large_weight_mask)
+        nparams_toprune = torch.numel(t) * self.threshold  # get this val
+        bottom_k = torch.topk(large_weight_mask_ranked.view(-1), k=nparams_toprune,largest=False)
+        mask.view(-1)[bottom_k.indices] = 0
+        # mask = torch.mul(mask, std)
         return mask
 
 
