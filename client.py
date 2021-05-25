@@ -136,7 +136,7 @@ class Client():
             Prune model
         """
         fprune_fixed_amount(model, prune_rate,  # prune_step,
-                            verbose=self.args.prune_verbosity, glob=True)
+                            verbose=self.args.prune_verbosity, glob=False)
 
     @torch.no_grad()
     def download(self, globalModel, global_initModel, *args, **kwargs):
