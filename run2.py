@@ -93,13 +93,13 @@ def build_args(arch='mlp',
 
 CIFAR10_experiments = {
     
-  'CIFAR10_cell_baseline_3':
+  'CIFAR10_cell_baseline_20_n':
         build_args(arch='cnn',
                    client=Client,
                    server=Server,
                    dataset='cifar10',
                    avg_logic='standalone',
-                   num_clients=3,
+                   num_clients=20,
                    comm_rounds=59,
                    frac=1,
                    prune_step=0.2,
