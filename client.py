@@ -68,14 +68,12 @@ class Client():
                                             source_buff=dict(self.globalModel.named_buffers()))
                 else:
                     self.model = self.globalModel
+                    self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # eita reinitialized to original val
                 self.eita = self.args.eita_hat
 
             else:
                 #---------------------Straggler-----------------------------#
-                # eita = eita*alpha
-                #####Remove pruning reset####
-                # self.cur_prune_rate = 0.00
                 self.eita *= self.args.alpha
                 self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # copy globalModel
@@ -87,7 +85,8 @@ class Client():
         self.eval_score = self.eval(self.model)
 
         with torch.no_grad():
-            wandb.log({f"{self.client_id}_cur_prune_rate": self.cur_prune_rate})
+            wandb.log(
+                {f"{self.client_id}_cur_prune_rate": self.prune_rates[-1]})
             wandb.log({f"{self.client_id}_eita": self.eita})
 
             for key, thing in self.eval_score.items():
