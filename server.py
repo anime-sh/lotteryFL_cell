@@ -173,7 +173,7 @@ class Server():
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
         if self.args.report_verbosity:
             log_obj(eval_log_path1, self.model)
-            log_obj(eval_log_path2, self.__dict__)
+            # log_obj(eval_log_path2, self.__dict__)
 
     def upload(
         self,

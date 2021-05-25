@@ -167,7 +167,7 @@ class Client():
             eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
             eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
             log_obj(eval_log_path1, self.model)
-            log_obj(eval_log_path2, self.__dict__)
+            # log_obj(eval_log_path2, self.__dict__)
 
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """
