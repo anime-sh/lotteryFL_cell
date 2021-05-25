@@ -51,7 +51,7 @@ def get_parameters(module, name="weight_orig") -> nn.Parameter:
         if n == name:
             return params
 
-
+@torch.no_grad()
 def super_prune(model, init_model, name="weight", threshold=0.2, verbose=True):
 
     params, num_global_weights, layers_w_count = get_prune_params(model)
