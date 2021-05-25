@@ -5,21 +5,6 @@ import torch.nn.functional as F
 class MLP(nn.Module):
     def __init__(self, num_classes=10):
         super(MLP, self).__init__()
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(28*28, 64),
-        #     nn.Dropout(),
-        #     nn.ReLU(inplace=True),
-        #     nn.Linear(64, num_classes),
-        #     nn.Softmax(dim=1)
-        # )
-        # self.classifier = nn.Sequential(
-        #     nn.Linear(32*32*3, 100),
-        #     nn.ReLU(inplace=True),
-        #     nn.Linear(100, 100),
-        #     nn.ReLU(inplace=True),
-        #     nn.Linear(100, num_classes),
-        # )
-
         self.linear1 = nn.Linear(32*32*3, 1024)
         self.linear2 = nn.Linear(1024, 512)
         self.linear3 = nn.Linear(512, 64)
@@ -41,5 +26,6 @@ class MLP(nn.Module):
         out = self.linear4(out)
         out = F.relu(out)
         out = self.linear5(out)
+        out = F.softmax(out,dim=1)
         return out
 
