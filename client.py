@@ -68,14 +68,12 @@ class Client():
                                             source_buff=dict(self.globalModel.named_buffers()))
                 else:
                     self.model = self.globalModel
+                    self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # eita reinitialized to original val
                 self.eita = self.args.eita_hat
 
             else:
                 #---------------------Straggler-----------------------------#
-                # eita = eita*alpha
-                #####Remove pruning reset####
-                # self.cur_prune_rate = 0.00
                 self.eita *= self.args.alpha
                 self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
                 # copy globalModel
@@ -87,7 +85,8 @@ class Client():
         self.eval_score = self.eval(self.model)
 
         with torch.no_grad():
-            wandb.log({f"{self.client_id}_cur_prune_rate": self.cur_prune_rate})
+            wandb.log(
+                {f"{self.client_id}_cur_prune_rate": self.prune_rates[-1]})
             wandb.log({f"{self.client_id}_eita": self.eita})
 
             for key, thing in self.eval_score.items():
@@ -136,7 +135,7 @@ class Client():
             Prune model
         """
         fprune_fixed_amount(model, prune_rate,  # prune_step,
-                            verbose=self.args.prune_verbosity, glob=True)
+                            verbose=self.args.prune_verbosity, glob=False)
 
     @torch.no_grad()
     def download(self, globalModel, global_initModel, *args, **kwargs):
@@ -168,7 +167,7 @@ class Client():
             eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
             eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
             log_obj(eval_log_path1, self.model)
-            log_obj(eval_log_path2, self.__dict__)
+            # log_obj(eval_log_path2, self.__dict__)
 
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """

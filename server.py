@@ -76,10 +76,23 @@ class Server():
                     # Implement global pruning by pruning aggregated model
                     # and then copy initial_params to parameters with pruned model's buffer
                     self.prune(self.model)
-                    self.model = copy_model(self.init_model,
-                                            self.args.dataset,
-                                            self.args.arch,
-                                            source_buff=dict(self.model.named_buffers()))
+                    ##########################################################
+                    new_model = copy_model(
+                        self.init_model, self.args.dataset, self.args.arch)
+                    source_weights = dict(self.init_model.named_parameters())
+                    source_buffers = dict(self.model.named_buffers())
+                    for name, param in new_model.named_parameters():
+                        if 'weight' in name:
+                            std = torch.std(source_weights[name])
+                            param.data.copy_(torch.sign(
+                                source_weights[name])*std)
+                        else:
+                            param.data.copy_(source_weights[name])
+
+                    for name, buffer_ in new_model.named_buffers():
+                        buffer_.data.copy_(source_buffers[name])
+                    self.model = new_model
+                    ##########################################################
 
                 # select fraction clients for training (uniform sampling)
                 clients_idx = np.random.choice(
@@ -98,7 +111,7 @@ class Server():
                 models, accs = self.download(clients)
                 self.client_accuracies[clients_idx, i] = accs[:]
                 # aggregate all models (fed-avg)
-                self.model = self.aggr(models,clients)
+                self.model = self.aggr(models, clients)
                 del models
                 avg_accuracy = np.sum(accs)/len(clients_idx)
                 print('-----------------------------', flush=True)
@@ -160,7 +173,7 @@ class Server():
         eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
         if self.args.report_verbosity:
             log_obj(eval_log_path1, self.model)
-            log_obj(eval_log_path2, self.__dict__)
+            # log_obj(eval_log_path2, self.__dict__)
 
     def upload(
         self,
