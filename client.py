@@ -120,7 +120,8 @@ class Client():
             accuracies.append(train_score['Accuracy'][-1])
 
             if self.args.report_verbosity:
-                epoch_path = train_log_path + f'client_model_epoch{epoch}.torch'
+                epoch_path = train_log_path + \
+                    f'client_model_epoch{epoch}.torch'
                 epoch_score_path = train_log_path + \
                     f'client_train_score_epoch{epoch}.pickle'
                 log_obj(epoch_path, self.model)
