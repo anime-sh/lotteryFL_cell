@@ -1,3 +1,4 @@
+from utils.util import train
 from torch import nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
@@ -59,22 +60,34 @@ class CNN(pl.Module):
         y_raw = self(x)
         loss = self.criterion(y_raw, y)
         y_pred = nn.Softmax(y_raw, dim=-1)
-        self.train_preds.extend(y_pred)
-        self.train_targets.extend(y)
+        # self.train_preds.extend(y_pred)
+        # self.train_targets.extend(y)
         acc = metric(y_pred, y)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True,logger=True)
         self.log('train_acc', acc, on_step=True, on_epoch=True, prog_bar=True,logger=True)
         return loss
 
     def train_epoch_end(self, train_losses):
-        acc = metric.compute()
-        metric.reset()
+        pass 
 
     def test_step(self, batch, batch_idx):
-        pass
+        x, y = batch
+        y_raw = self(x)
+        loss = self.criterion(y_raw, y)
+        y_pred = nn.Softmax(y_raw, dim=-1)
+        acc = metric(y_pred, y)
+        self.test_labels.extend(y)
+        self.log('test_acc', acc, on_step=True, on_epoch=True, prog_bar=True,logger=True)
+        return loss
 
-    def test_epoch_end(self, test_):
-        pass
+    def test_epoch_end(self, test_losses):
+        classes_in_test_loader=list(set(self.train_labels))
+        pclass2 = ''
+        class_name = ['airplane', 'car', 'bird', 'cat',
+                    'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+        for c in classes_in_test_loader:
+            pclass2 += class_name[c]+' '
+        # what to do now?
 
 #### pl hooks end ####
 #### custom functions ####
