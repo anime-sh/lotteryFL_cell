@@ -81,8 +81,8 @@ if __name__ == "__main__":
         client = Client(i, args, train_loaders[i], test_loaders[i])
         clients.append(client)
 
-    wandb.login(key='706d0c3b51a53b2786cec07877801bbd1bfc19c0')
-    wandb.init(project="CELL_BATUL_")
+    wandb.login()
+    wandb.init(project="CELL_server_side_")
     wandb.config.update(args)
 
     server = Server(args, model, clients)
