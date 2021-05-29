@@ -1,9 +1,7 @@
 import wandb
-import client
 from typing import List, Dict, Tuple
 import torch.nn.utils.prune as prune
 import numpy as np
-from utils import create_model, copy_model
 import random
 import os
 from tabulate import tabulate
@@ -11,8 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from utils import get_prune_params, aggregate, evaluate, fevaluate, super_prune, \
-    log_obj, prune_fixed_amount, fed_avg
+from util import get_prune_params, super_prune, fed_avg, l1_prune, create_model, copy_model, get_prune_summary
 
 
 class Server():
@@ -23,18 +20,18 @@ class Server():
     def __init__(
         self,
         args,
-        test_loader,
-        clients=[],
-        comm_rounds=1,
+        model,
+        clients
     ):
         super().__init__()
-        self.clients = np.array(clients, dtype='object')
+        self.clients = clients
         self.num_clients = len(self.clients)
         self.args = args
+        self.model = model
+        self.init_model = copy_model(model, self.args.device)
+
         self.elapsed_comm_rounds = 0
-        self.init_model = create_model(args.dataset, args.arch)
-        self.model = copy_model(self.init_model, args.dataset, args.arch)
-        self.client_accuracies = np.zeros((self.num_clients, args.comm_rounds))
+        self.curr_prune_step = 0.00
 
     def aggr(
         self,
@@ -43,15 +40,20 @@ class Server():
         *args,
         **kwargs
     ):
-        data_nums = np.array([len(client.train_loader) for client in clients])
-        avg_model = aggregate(models=models,
-                              dataset=self.args.dataset,
-                              arch=self.args.arch,
-                              data_nums=data_nums)
-        source_buffers = dict(self.model.named_buffers())
-        for name, buffer in avg_model.named_buffers():
-            buffer.data.copy_(source_buffers[name])
-        return avg_model
+        weights_per_client = np.array(
+            [client.num_data for client in clients], dtype=np.float32)
+        weights_per_client /= np.sum(weights_per_client)
+
+        aggr_model = fed_avg(
+            models=models,
+            weights=weights_per_client,
+            device=self.args.device
+        )
+        pruned_percent = get_prune_summary(aggr_model, name='weight')['global']
+        # pruned by the earlier zeros in the model
+        l1_prune(aggr_model, amount=pruned_percent, name='weight')
+
+        return aggr_model
 
     def update(
         self,
@@ -61,119 +63,86 @@ class Server():
         """
             Interface to server and clients
         """
+        self.elapsed_comm_rounds += 1
+        print('-----------------------------', flush=True)
+        print(
+            f'| Communication Round: {self.elapsed_comm_rounds}  | ', flush=True)
+        print('-----------------------------', flush=True)
 
-        for i in range(self.args.comm_rounds):
+        # global_model pruned at fixed freq
+        # with a fixed pruning step
+        if (self.args.server_prune == True and
+                (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0):
+            # prune the model using super_mask
+            self.curr_prune_step += self.args.prune_step
+            super_prune(
+                model=self.model,
+                init_model=self.init_model,
+                amount=self.curr_prune_step,
+                name='weight'
+            )
+            # reinitialize model with std.dev of init_model
+            source_params = dict(self.init_model.named_parameters())
+            for name, param in self.model.named_parameters():
+                std_dev = torch.std(source_params[name].data)
+                param.data.copy_(std_dev*torch.sign(source_params[name].data))
 
-            with torch.no_grad():
-                print('-----------------------------', flush=True)
-                print(f'| Communication Round: {i+1}  | ', flush=True)
-                print('-----------------------------', flush=True)
+        client_idxs = np.random.choice(
+            self.num_clients, int(
+                self.args.frac_clients_per_round*self.num_clients),
+            replace=False,
+        )
+        clients = [self.clients[i] for i in client_idxs]
 
-                if ((1+self.elapsed_comm_rounds) %
-                    self.args.global_prune_freq) == 0 \
-                        and self.args.globalPrune == True:
+        # upload model to selected clients
+        self.upload(clients)
 
-                    # Implement global pruning by pruning aggregated model
-                    # and then copy initial_params to parameters with pruned model's buffer
-                    self.prune(self.model)
-                    ##########################################################
-                    new_model = copy_model(
-                        self.init_model, self.args.dataset, self.args.arch)
-                    source_weights = dict(self.init_model.named_parameters())
-                    source_buffers = dict(self.model.named_buffers())
-                    for name, param in new_model.named_parameters():
-                        if 'weight' in name:
-                            std = torch.std(source_weights[name])
-                            param.data.copy_(torch.sign(
-                                source_weights[name])*std)
-                        else:
-                            param.data.copy_(source_weights[name])
+        # call training loop on all clients
+        for client in clients:
+            client.update()
 
-                    for name, buffer_ in new_model.named_buffers():
-                        buffer_.data.copy_(source_buffers[name])
-                    self.model = new_model
-                    ##########################################################
+        # download models from selected clients
+        models, accs = self.download(clients)
 
-                # select fraction clients for training (uniform sampling)
-                clients_idx = np.random.choice(
-                    self.num_clients, int(self.args.frac * self.num_clients), replace=False)
-                clients = self.clients[clients_idx]
+        avg_accuracy = np.mean(accs, axis=0, dtype=np.float32)
+        print('-----------------------------', flush=True)
+        print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
+        print('-----------------------------', flush=True)
+        wandb.log({"client_avg_acc": avg_accuracy})
 
-                # upload model,iniitial_model(optional)
-                self.upload(clients)
+        # compute average-model
+        aggr_model = self.aggr(models, clients)
 
-            # update client models
-            for client in clients:
-                client.update()
-
-            # download local models for selected clients
-            with torch.no_grad():
-                models, accs = self.download(clients)
-                self.client_accuracies[clients_idx, i] = accs[:]
-                # aggregate all models (fed-avg)
-                self.model = self.aggr(models, clients)
-                del models
-                avg_accuracy = np.sum(accs)/len(clients_idx)
-                print('-----------------------------', flush=True)
-                print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
-                print('-----------------------------', flush=True)
-
-                wandb.log({"client_avg_acc": avg_accuracy})
-                self.elapsed_comm_rounds += 1
+        # copy aggregated-model's params to self.model (keep buffer same)
+        source_params = dict(aggr_model.named_parameters())
+        for name, param in self.model.named_parameters():
+            param.data.copy_(source_params[name])
 
     def download(
         self,
-        clients: List[client.Client],
+        clients,
         *args,
         **kwargs
     ):
-        # TODO: parallelize downloading models from clients
+        # downloaded models are non pruned (taken care of in fed-avg)
         uploads = [client.upload() for client in clients]
         models = [upload["model"] for upload in uploads]
-        accs = [upload["acc"][0] for upload in uploads]
+        accs = [upload["acc"] for upload in uploads]
         return models, accs
-
-    def prune(
-        self,
-        model,
-        *args,
-        **kwargs
-    ):
-        """
-            Prune self.model
-        """
-        super_prune(model=model,
-                    init_model=self.init_model,
-                    name="weight",
-                    threshold=self.args.prune_threshold,
-                    verbose=self.args.prune_verbosity)
-
-    def eval(
-        self,
-        model,
-        *args,
-        **kwargs
-    ):
-        """
-            Eval self.model
-        """
-        return fevaluate(model=model,
-                         data_loader=self.test_loader,
-                         verbose=True)
 
     def save(
         self,
         *args,
         **kwargs
     ):
-        """
-            Save model,meta-info,states
-        """
-        eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
-        eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
-        if self.args.report_verbosity:
-            log_obj(eval_log_path1, self.model)
-            # log_obj(eval_log_path2, self.__dict__)
+        # """
+        #     Save model,meta-info,states
+        # """
+        # eval_log_path1 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_model.pickle"
+        # eval_log_path2 = f"./log/full_save/server/round{self.elapsed_comm_rounds}_dict.pickle"
+        # if self.args.report_verbosity:
+        #     log_obj(eval_log_path1, self.model)
+        pass
 
     def upload(
         self,
@@ -184,13 +153,17 @@ class Server():
         """
             Upload global model to clients
         """
-
-        # TODO: parallelize upload to clients (broadcasting stratergy)
-        init_model = copy_model(self.init_model,
-                                self.args.dataset,
-                                self.args.arch)
         for client in clients:
-            model_copy = copy_model(self.model,
-                                    self.args.dataset,
-                                    self.args.arch)
-            client.download(model_copy, init_model)
+            # make pruning permanent and then upload the model to clients
+            model_copy = copy_model(self.model, self.args.device)
+            init_model_copy = copy_model(self.init_model, self.args.device)
+
+            params = get_prune_params(model_copy, name='weight')
+            for param, name in params:
+                prune.remove(param, name)
+
+            init_params = get_prune_params(init_model_copy)
+            for param, name in init_params:
+                prune.remove(param, name)
+            # call client method
+            client.download(model_copy, init_model_copy)

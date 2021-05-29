@@ -1,9 +1,6 @@
 import torch
-import torch.nn as nn
-import numpy as np
-from torch.nn import functional as F
-torch.manual_seed(0)
-np.random.seed(0)
+from torch import nn
+import torch.nn.functional as F
 
 
 class MLP(nn.Module):
@@ -20,4 +17,4 @@ class MLP(nn.Module):
     def forward(self, x):
         x = torch.flatten(x, 1)
         out = self.classifier(x)
-        return F.softmax(out,dim = 1)
+        return F.softmax(out, dim=1)

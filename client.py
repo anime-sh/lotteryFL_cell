@@ -4,179 +4,188 @@ import torch.optim as optim
 from torch.nn import Module
 import numpy as np
 import os
-from utils import copy_model, create_model, get_prune_summary, train, ftrain, \
-    evaluate, fevaluate, train, ftrain, evaluate, fevaluate, fprune_fixed_amount,\
-    prune_fixed_amount, copy_model, create_model, get_prune_summary, log_obj, summarize_prune
-import numpy as np
 from typing import Dict
 import copy
 import math
 import wandb
-
-torch.manual_seed(42)
-np.random.seed(42)
+from torch.nn.utils import prune
+from util import get_prune_summary, l1_prune, get_prune_params, copy_model
+from util import train as util_train
+from util import test as util_test
 
 
 class Client():
-    def __init__(self, args, train_loader, test_loader, client_id=None):
-
+    def __init__(
+        self,
+        idx,
+        args,
+        train_loader=None,
+        test_loader=None,
+        **kwargs
+    ):
+        self.idx = idx
         self.args = args
-        print("Creating model for client " + str(client_id))
-        self.model = create_model(self.args.dataset, self.args.arch)
         self.test_loader = test_loader
         self.train_loader = train_loader
-        self.client_id = client_id
+
+        self.eita_hat = self.args.eita
+        self.eita = self.eita_hat
+        self.alpha = self.args.alpha
+        self.num_data = len(self.train_loader)
+
         self.elapsed_comm_rounds = 0
-        self.accuracies = np.zeros((args.comm_rounds, self.args.client_epoch))
-        self.losses = np.zeros((args.comm_rounds, self.args.client_epoch))
-        self.prune_rates = np.zeros(args.comm_rounds)
+
+        self.accuracies = []
+        self.losses = []
+        self.prune_rates = []
         self.cur_prune_rate = 0.00
-        self.eita = self.args.eita_hat
-        assert self.model, "Something went wrong and the model cannot be initialized"
-        #######
+
+        self.model = None
+        self.global_model = None
+        self.global_init_model = None
 
     def update(self) -> None:
         """
             Interface to Server
         """
-        print(f"----------Client:{self.client_id} Update---------------------")
+        print(f"\n----------Client:{self.idx} Update---------------------")
 
-        # evaluate globalModel on local data
-        # if accuracy < eita proceed as straggler else LH finder
-        with torch.no_grad():
-            eval_score = self.eval(self.globalModel)
+        print(f"Evaluating Global model ")
+        metrics = self.eval(self.global_model)
+        accuracy = metrics['Accuracy'][0]
+        print(f'Global model accuracy: {accuracy}')
 
-            # get pruning summary for globalModel
-            num_pruned, num_params = summarize_prune(
-                self.globalModel, name='weight')
-            cur_prune_rate = num_pruned / num_params
-
-            if eval_score["Accuracy"][0] > self.eita:
-                #--------------------Lottery Finder-----------------#
-                # expected final pruning % of local model
-                # prune model by prune_rate - current_prune_rate
-                # every iteration pruning should be increase by prune_step if viable
+        prune_rate = get_prune_summary(model=self.global_model,
+                                       name='weight')['global']
+        print('Global model prune percentage: {}'.format(prune_rate))
+           
+        if self.cur_prune_rate < self.args.prune_threshold:
+            if accuracy > self.eita:
                 self.cur_prune_rate = min(self.cur_prune_rate + self.args.prune_step,
-                                          self.args.prune_percent)
-                if self.cur_prune_rate > cur_prune_rate:
-                    self.prune(self.globalModel,
-                               prune_rate=self.cur_prune_rate - cur_prune_rate)
-                    self.prune_rates[self.elapsed_comm_rounds] = self.cur_prune_rate
-                    self.model = copy_model(self.global_initModel,
-                                            self.args.dataset,
-                                            self.args.arch,
-                                            source_buff=dict(self.globalModel.named_buffers()))
+                                          self.args.prune_threshold)
+                if self.cur_prune_rate > prune_rate:
+                    l1_prune(model=self.global_model,
+                             amount=self.cur_prune_rate - prune_rate,
+                             name='weight',
+                             verbose=self.args.prune_verbose)
+                    self.prune_rates.append(self.cur_prune_rate)
                 else:
-                    self.model = self.globalModel
-                    self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
-                # eita reinitialized to original val
-                self.eita = self.args.eita_hat
+                    self.prune_rates.append(prune_rate)
+                # reinitialize model with init_params
+                source_params = dict(self.global_init_model.named_parameters())
+                for name, param in self.global_model.named_parameters():
+                    param.data.copy_(source_params[name].data)
+
+                self.model = self.global_model
+                self.eita = self.eita_hat
 
             else:
-                #---------------------Straggler-----------------------------#
-                self.eita *= self.args.alpha
-                self.prune_rates[self.elapsed_comm_rounds] = cur_prune_rate
-                # copy globalModel
-                self.model = self.globalModel
-        #-----------------------TRAINING LOOOP ------------------------#
-        # train both straggler and LH finder
-        self.model.train()
+                self.eita *= self.alpha
+                self.model = self.global_model
+                self.prune_rates.append(prune_rate)
+        else:
+            if self.cur_prune_rate > prune_rate:
+                l1_prune(model=self.global_model,
+                         amount=self.cur_prune_rate-prune_rate,
+                         name='weight',
+                         verbose=self.args.prune_verbose)
+                self.prune_rates.append(self.cur_prune_rate)
+            else:
+                self.prune_rates.append(self.prune_rates)
+            self.model = self.global_model
+
+        print(f"\nTraining local model")
         self.train(self.elapsed_comm_rounds)
-        self.eval_score = self.eval(self.model)
 
-        with torch.no_grad():
-            wandb.log(
-                {f"{self.client_id}_cur_prune_rate": self.prune_rates[-1]})
-            wandb.log({f"{self.client_id}_eita": self.eita})
+        print(f"\nEvaluating Trained Model")
+        metrics = self.eval(self.model)
+        print(f'Trained model accuracy: {metrics["Accuracy"][0]}')
 
-            for key, thing in self.eval_score.items():
-                if(isinstance(thing, list)):
-                    wandb.log({f"{self.client_id}_{key}": thing[0]})
-                else:
-                    wandb.log({f"{self.client_id}_{key}": thing.item()})
+        wandb.log({f"{self.idx}_cur_prune_rate": self.cur_prune_rate})
+        wandb.log({f"{self.idx}_eita": self.eita})
+        wandb.log(
+            {f"{self.idx}_percent_pruned": self.prune_rates[-1]})
 
-            if (self.elapsed_comm_rounds+1) % self.args.save_freq == 0:
-                self.save(self.model)
+        for key, thing in metrics.items():
+            if(isinstance(thing, list)):
+                wandb.log({f"{self.idx}_{key}": thing[0]})
+            else:
+                wandb.log({f"{self.idx}_{key}": thing})
 
-            self.elapsed_comm_rounds += 1
+        if (self.elapsed_comm_rounds+1) % self.args.save_freq == 0:
+            self.save(self.model)
+
+        self.elapsed_comm_rounds += 1
 
     def train(self, round_index):
         """
             Train NN
         """
-        accuracies = []
         losses = []
 
-        for epoch in range(self.args.client_epoch):
-            train_log_path = f'./log/clients/client{self.client_id}'\
-                             f'/round{self.elapsed_comm_rounds}/'
-            if self.args.train_verbosity:
-                print(f"Client={self.client_id}, epoch={epoch}")
-            train_score = ftrain(self.model,
+        for epoch in range(self.args.epochs):
+            if self.args.train_verbose:
+                print(
+                    f"Client={self.idx}, epoch={epoch}, round:{round_index}")
+
+            metrics = util_train(self.model,
                                  self.train_loader,
                                  self.args.lr,
-                                 self.args.train_verbosity)
-            losses.append(train_score['Loss'][-1].data.item())
-            accuracies.append(train_score['Accuracy'][-1])
+                                 self.args.device,
+                                 self.args.fast_dev_run,
+                                 self.args.train_verbose)
+            losses.append(metrics['Loss'][0])
 
-            if self.args.report_verbosity:
-                epoch_path = train_log_path + \
-                    f'client_model_epoch{epoch}.torch'
-                epoch_score_path = train_log_path + \
-                    f'client_train_score_epoch{epoch}.pickle'
-                log_obj(epoch_path, self.model)
-                log_obj(epoch_score_path, train_score)
-
-        self.losses[round_index:] = np.array(losses)
-        self.accuracies[round_index:] = np.array(accuracies)
+            if self.args.fast_dev_run:
+                break
+        self.losses.extend(losses)
 
     @torch.no_grad()
-    def prune(self, model, prune_rate, *args, **kwargs):
-        """
-            Prune model
-        """
-        fprune_fixed_amount(model, prune_rate,  # prune_step,
-                            verbose=self.args.prune_verbosity, glob=False)
-
-    @torch.no_grad()
-    def download(self, globalModel, global_initModel, *args, **kwargs):
+    def download(self, global_model, global_init_model, *args, **kwargs):
         """
             Download global model from server
         """
-        self.globalModel = globalModel
-        self.global_initModel = global_initModel
+        self.global_model = global_model
+        self.global_init_model = global_init_model
+
+        params_to_prune = get_prune_params(self.global_model)
+        for param, name in params_to_prune:
+            weights = getattr(param, name)
+            masked = torch.eq(weights.data, 0.00).sum().item()
+            # masked = 0.00
+            prune.l1_unstructured(param, name, amount=int(masked))
+
+        params_to_prune = get_prune_params(self.global_init_model)
+        for param, name in params_to_prune:
+            weights = getattr(param, name)
+            masked = torch.eq(weights.data, 0.00).sum().item()
+            # masked = 0.00
+            prune.l1_unstructured(param, name, amount=int(masked))
 
     def eval(self, model):
         """
             Eval self.model
         """
-        eval_score = fevaluate(model,
+        eval_score = util_test(model,
                                self.test_loader,
-                               verbose=self.args.test_verbosity)
-        if self.args.test_verbosity:
-            eval_log_path = f'./log/clients/client{self.client_id}/'\
-                            f'round{self.elapsed_comm_rounds}/'\
-                            f'eval_score_round{self.elapsed_comm_rounds}.pickle'
-            log_obj(eval_log_path, eval_score)
+                               self.args.device,
+                               self.args.fast_dev_run,
+                               self.args.test_verbose)
+        self.accuracies.append(eval_score['Accuracy'][0])
         return eval_score
 
     def save(self, *args, **kwargs):
-        """
-            Save model,meta-info,states
-        """
-        if self.args.report_verbosity:
-            eval_log_path1 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_model.pickle"
-            eval_log_path2 = f"./log/full_save/client{self.client_id}/round{self.elapsed_comm_rounds}_dict.pickle"
-            log_obj(eval_log_path1, self.model)
-            # log_obj(eval_log_path2, self.__dict__)
+        pass
 
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """
             Upload self.model
         """
+        upload_model = copy_model(model=self.model, device=self.args.device)
+        params_pruned = get_prune_params(upload_model, name='weight')
+        for param, name in params_pruned:
+            prune.remove(param, name)
         return {
-            "model": copy_model(self.model,
-                                self.args.dataset,
-                                self.args.arch),
-            "acc": self.eval_score["Accuracy"]
+            'model': upload_model,
+            'acc': self.accuracies[-1]
         }

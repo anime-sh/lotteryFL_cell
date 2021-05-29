@@ -1,5 +1,7 @@
+import torch
 from torch import nn
 import torch.nn.functional as F
+
 
 class CNN(nn.Module):
     def __init__(self, num_classes=10):
