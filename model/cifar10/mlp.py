@@ -1,6 +1,7 @@
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
+
 
 class MLP(nn.Module):
     def __init__(self, num_classes=10):
@@ -11,11 +12,7 @@ class MLP(nn.Module):
         self.linear4 = nn.Linear(64, 64)
         self.linear5 = nn.Linear(64, num_classes)
 
-
-        
     def forward(self, x):
-        #x = torch.flatten(x, 1)
-        #return self.classifier(x)
         out = x.view(x.size(0), -1)
         out = self.linear1(out)
         out = F.relu(out)
@@ -26,6 +23,4 @@ class MLP(nn.Module):
         out = self.linear4(out)
         out = F.relu(out)
         out = self.linear5(out)
-        out = F.softmax(out,dim=1)
-        return out
-
+        return F.softmax(out)
