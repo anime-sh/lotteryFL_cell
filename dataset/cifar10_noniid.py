@@ -14,9 +14,9 @@ def get_dataset_cifar10_extr_noniid(num_users, n_class, nsamples, rate_unbalance
                                     transform=apply_transform)
 
     # Chose equal splits for every user
-    user_groups_train, user_groups_test = cifar_extr_noniid(
+    user_groups_train, user_groups_test, class_idxs = cifar_extr_noniid(
         train_dataset, test_dataset, num_users, n_class, nsamples, rate_unbalance)
-    return train_dataset, test_dataset, user_groups_train, user_groups_test
+    return train_dataset, test_dataset, user_groups_train, user_groups_test, class_idxs
 
 
 def cifar_extr_noniid(train_dataset, test_dataset, num_users, n_class, num_samples, rate_unbalance):
@@ -53,11 +53,12 @@ def cifar_extr_noniid(train_dataset, test_dataset, num_users, n_class, num_sampl
         idxs_test_splits[labels_test[i]].append(idxs_test[i])
 
     idx_shards = np.split(idx_shard, 10)
-
+    class_idxs = []
     # divide and assign
     for i in range(num_users):
         user_labels = np.array([])
         temp_set = set(np.random.choice(10, n_class, replace=False))
+        class_idxs.append(temp_set)
         rand_set = []
         for j in temp_set:
             choice = np.random.choice(idx_shards[j], 1)[0]
@@ -82,4 +83,4 @@ def cifar_extr_noniid(train_dataset, test_dataset, num_users, n_class, num_sampl
         for label in user_labels_set:
             dict_users_test[i] = np.concatenate(
                 (dict_users_test[i], idxs_test_splits[int(label)]), axis=0)
-    return dict_users_train, dict_users_test
+    return dict_users_train, dict_users_test, class_idxs
