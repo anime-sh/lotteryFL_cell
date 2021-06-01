@@ -60,6 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--fast_dev_run', type=bool, default=False)
     parser.add_argument('--num_workers', type=int, default=0)
+    parser.add_argument('--exp_name', type=str, default='Experiment')
 
     args = parser.parse_args()
 
@@ -83,7 +84,7 @@ if __name__ == "__main__":
         clients.append(client)
 
     wandb.login()
-    wandb.init(project="Test1")
+    wandb.init(project=args.exp_name)
     wandb.config.update(args)
 
     server = Server(args, model, clients)
