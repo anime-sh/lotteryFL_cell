@@ -40,18 +40,19 @@ class Server():
         *args,
         **kwargs
     ):
+        print("----------Averaging Models--------")
         weights_per_client = np.array(
             [client.num_data for client in clients], dtype=np.float32)
         weights_per_client /= np.sum(weights_per_client)
-
         aggr_model = fed_avg(
             models=models,
             weights=weights_per_client,
             device=self.args.device
         )
-        pruned_percent = get_prune_summary(aggr_model, name='weight')['global']
+        pruned_summary, _, _ = get_prune_summary(aggr_model, name='weight')
+        pruned_percent = pruned_summary['global']
         # pruned by the earlier zeros in the model
-        l1_prune(aggr_model, amount=pruned_percent, name='weight')
+        l1_prune(aggr_model, amount=pruned_percent, name='weight', verbose=True)
 
         return aggr_model
 
@@ -74,11 +75,10 @@ class Server():
         if (self.args.server_prune == True and
                 (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0):
             # prune the model using super_mask
-            self.curr_prune_step += self.args.prune_step
             super_prune(
                 model=self.model,
                 init_model=self.init_model,
-                amount=self.curr_prune_step,
+                amount=self.args.server_prune_step,
                 name='weight'
             )
             # reinitialize model with std.dev of init_model
@@ -109,6 +109,7 @@ class Server():
         print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
         print('-----------------------------', flush=True)
         wandb.log({"client_avg_acc": avg_accuracy})
+        wandb.log({"comm_round": self.elapsed_comm_rounds})
 
         # compute average-model
         aggr_model = self.aggr(models, clients)
