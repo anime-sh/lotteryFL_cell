@@ -110,6 +110,7 @@ class Server():
         print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
         print('-----------------------------', flush=True)
         wandb.log({"client_avg_acc": avg_accuracy})
+        wandb.log({"comm_round": self.elapsed_comm_rounds})
 
         # compute average-model
         aggr_model = self.aggr(models, clients)
