@@ -78,7 +78,7 @@ class Server():
             super_prune(
                 model=self.model,
                 init_model=self.init_model,
-                amount=self.curr_prune_step,
+                amount=self.args.server_prune_step,
                 name='weight'
             )
             # reinitialize model with std.dev of init_model
