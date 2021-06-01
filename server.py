@@ -75,7 +75,6 @@ class Server():
         if (self.args.server_prune == True and
                 (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0):
             # prune the model using super_mask
-            self.curr_prune_step += self.args.prune_step
             super_prune(
                 model=self.model,
                 init_model=self.init_model,
