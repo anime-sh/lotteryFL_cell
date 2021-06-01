@@ -40,18 +40,19 @@ class Server():
         *args,
         **kwargs
     ):
+        print("----------Averaging Models--------")
         weights_per_client = np.array(
             [client.num_data for client in clients], dtype=np.float32)
         weights_per_client /= np.sum(weights_per_client)
-
         aggr_model = fed_avg(
             models=models,
             weights=weights_per_client,
             device=self.args.device
         )
-        pruned_percent = get_prune_summary(aggr_model, name='weight')['global']
+        pruned_summary, _, _ = get_prune_summary(aggr_model, name='weight')
+        pruned_percent = pruned_summary['global']
         # pruned by the earlier zeros in the model
-        l1_prune(aggr_model, amount=pruned_percent, name='weight')
+        l1_prune(aggr_model, amount=pruned_percent, name='weight', verbose=True)
 
         return aggr_model
 

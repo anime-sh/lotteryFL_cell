@@ -21,6 +21,7 @@ class Client():
         args,
         train_loader=None,
         test_loader=None,
+        class_idxs=None,
         **kwargs
     ):
         self.idx = idx
@@ -32,7 +33,7 @@ class Client():
         self.eita = self.eita_hat
         self.alpha = self.args.alpha
         self.num_data = len(self.train_loader)
-
+        self.class_idxs = class_idxs
         self.elapsed_comm_rounds = 0
 
         self.accuracies = []
@@ -49,27 +50,33 @@ class Client():
             Interface to Server
         """
         print(f"\n----------Client:{self.idx} Update---------------------")
-
+        print(f'----------User Class ids: {self.class_idxs}------------')
         print(f"Evaluating Global model ")
         metrics = self.eval(self.global_model)
         accuracy = metrics['Accuracy'][0]
         print(f'Global model accuracy: {accuracy}')
 
-        prune_rate = get_prune_summary(model=self.global_model,
-                                       name='weight')['global']
+        prune_summmary, num_zeros, num_global = get_prune_summary(model=self.global_model,
+                                                                  name='weight')
+        prune_rate = prune_summmary['global']
         print('Global model prune percentage: {}'.format(prune_rate))
-           
+
         if self.cur_prune_rate < self.args.prune_threshold:
             if accuracy > self.eita:
                 self.cur_prune_rate = min(self.cur_prune_rate + self.args.prune_step,
                                           self.args.prune_threshold)
                 if self.cur_prune_rate > prune_rate:
                     l1_prune(model=self.global_model,
-                             amount=self.cur_prune_rate - prune_rate,
+                             amount=self.cur_prune_rate,
                              name='weight',
                              verbose=self.args.prune_verbose)
                     self.prune_rates.append(self.cur_prune_rate)
                 else:
+                    l1_prune(model=self.global_model,
+                             amount=prune_rate,
+                             name='weight',
+                             verbose=False)
+
                     self.prune_rates.append(prune_rate)
                 # reinitialize model with init_params
                 source_params = dict(self.global_init_model.named_parameters())
@@ -80,18 +87,28 @@ class Client():
                 self.eita = self.eita_hat
 
             else:
+                l1_prune(model=self.global_model,
+                         amount=prune_rate,
+                         name='weight',
+                         verbose=False)
                 self.eita *= self.alpha
                 self.model = self.global_model
                 self.prune_rates.append(prune_rate)
         else:
             if self.cur_prune_rate > prune_rate:
                 l1_prune(model=self.global_model,
-                         amount=self.cur_prune_rate-prune_rate,
+                         amount=self.cur_prune_rate,
                          name='weight',
                          verbose=self.args.prune_verbose)
+
                 self.prune_rates.append(self.cur_prune_rate)
             else:
-                self.prune_rates.append(self.prune_rates)
+                l1_prune(model=self.global_model,
+                         amount=prune_rate,
+                         name='weight',
+                         verbose=False)
+
+                self.prune_rates.append(prune_rate)
             self.model = self.global_model
 
         print(f"\nTraining local model")
@@ -148,18 +165,18 @@ class Client():
         self.global_model = global_model
         self.global_init_model = global_init_model
 
-        params_to_prune = get_prune_params(self.global_model)
-        for param, name in params_to_prune:
-            weights = getattr(param, name)
-            masked = torch.eq(weights.data, 0.00).sum().item()
-            # masked = 0.00
-            prune.l1_unstructured(param, name, amount=int(masked))
+        # params_to_prune = get_prune_params(self.global_model)
+        # for param, name in params_to_prune:
+        #     weights = getattr(param, name)
+        #     masked = torch.eq(weights.data, 0.00).sum().item()
+        #     # masked = 0.00
+        #     prune.l1_unstructured(param, name, amount=int(masked))
 
         params_to_prune = get_prune_params(self.global_init_model)
         for param, name in params_to_prune:
             weights = getattr(param, name)
-            masked = torch.eq(weights.data, 0.00).sum().item()
-            # masked = 0.00
+            # masked = torch.eq(weights.data, 0.00).sum().item()
+            masked = 0.00
             prune.l1_unstructured(param, name, amount=int(masked))
 
     def eval(self, model):

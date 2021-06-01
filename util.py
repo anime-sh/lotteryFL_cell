@@ -301,7 +301,7 @@ def l1_prune(model, amount=0.00, name='weight', verbose=False, glob=False):
         for params, name in params_to_prune:
             prune.l1_unstructured(params, name, amount)
     if verbose:
-        info = get_prune_summary(model, name)
+        info, _, _ = get_prune_summary(model, name)
         global_pruning = info['global']
         info.pop('global')
         print(tabulate(info, headers='keys', tablefmt='github'))
@@ -337,7 +337,7 @@ def get_prune_params(model, name='weight') -> List[Tuple[nn.Parameter, str]]:
     return params_to_prune
 
 
-def get_prune_summary(model, name='weight') -> Dict[str, Union[List[Union[str, float]], float]]:
+def get_prune_summary(model, name='weight') -> List[Union[Union[Dict[str, Union[List[Union[str, float]], float]], int], int]]:
     num_global_zeros, num_layer_zeros, num_layer_weights = 0, 0, 0
     num_global_weights = 0
     global_prune_percent, layer_prune_percent = 0, 0
@@ -364,7 +364,7 @@ def get_prune_summary(model, name='weight') -> Dict[str, Union[List[Union[str, f
     global_prune_percent = num_global_zeros / num_global_weights
 
     prune_stat['global'] = global_prune_percent
-    return prune_stat
+    return prune_stat, num_global_zeros, num_global_weights
 
 
 def custom_save(model, path):

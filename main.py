@@ -68,25 +68,25 @@ if __name__ == "__main__":
     model = create_model(cls=models[args.dataset]
                          [args.arch], device=args.device)
 
-    train_loaders, test_loaders = DataLoaders(num_users=args.num_clients,
-                                              dataset_name=args.dataset,
-                                              n_class=args.n_class,
-                                              nsamples=args.n_samples,
-                                              mode=args.dataset_mode,
-                                              batch_size=args.batch_size,
-                                              rate_unbalance=args.rate_unbalance,
-                                              num_workers=args.num_workers)
+    train_loaders, test_loaders, class_idxs = DataLoaders(num_users=args.num_clients,
+                                                          dataset_name=args.dataset,
+                                                          n_class=args.n_class,
+                                                          nsamples=args.n_samples,
+                                                          mode=args.dataset_mode,
+                                                          batch_size=args.batch_size,
+                                                          rate_unbalance=args.rate_unbalance,
+                                                          num_workers=args.num_workers)
     clients = []
     for i in range(args.num_clients):
-        client = Client(i, args, train_loaders[i], test_loaders[i])
+        client = Client(
+            i, args, train_loaders[i], test_loaders[i], class_idxs[i])
         clients.append(client)
 
     wandb.login()
-    wandb.init(project="CELL_server_side_")
+    wandb.init(project="Test1")
     wandb.config.update(args)
 
     server = Server(args, model, clients)
 
     for i in range(args.rounds):
         server.update()
-
