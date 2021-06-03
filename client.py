@@ -58,7 +58,7 @@ class Client():
 
         prune_summmary, num_zeros, num_global = get_prune_summary(model=self.global_model,
                                                                   name='weight')
-        prune_rate = prune_summmary['global']
+        prune_rate = num_zeros / num_global
         print('Global model prune percentage: {}'.format(prune_rate))
 
         if self.cur_prune_rate < self.args.prune_threshold:
@@ -72,25 +72,33 @@ class Client():
                              verbose=self.args.prune_verbose)
                     self.prune_rates.append(self.cur_prune_rate)
                 else:
-                    l1_prune(model=self.global_model,
-                             amount=prune_rate,
-                             name='weight',
-                             verbose=False)
-
+                    # reprune by the downloaded global-model(important)
+                    # REVIEW: Rather than pruning each layer by orig_global_pruned_%,
+                    # pruned each layer by its' orig_pruned_%
+                    params_to_prune = get_prune_params(self.global_model)
+                    for param, name in params_to_prune:
+                        amount = torch.eq(getattr(param, name),
+                                          0.00).sum().float()
+                        prune.l1_unstructured(param, name, amount=int(amount))
                     self.prune_rates.append(prune_rate)
                 # reinitialize model with init_params
                 source_params = dict(self.global_init_model.named_parameters())
                 for name, param in self.global_model.named_parameters():
-                    param.data.copy_(source_params[name].data)
+                    # REVIEW: remove bias reinitialization
+                    if 'bias' not in name:
+                        param.data.copy_(source_params[name].data)
 
                 self.model = self.global_model
                 self.eita = self.eita_hat
 
             else:
-                l1_prune(model=self.global_model,
-                         amount=prune_rate,
-                         name='weight',
-                         verbose=False)
+                # reprune by the downloaded global-model(important)
+                # REVIEW: Rather than pruning each layer by orig_global_pruned_%,
+                # pruned each layer by its' orig_pruned_%
+                params_to_prune = get_prune_params(self.global_model)
+                for param, name in params_to_prune:
+                    amount = torch.eq(getattr(param, name), 0.00).sum().float()
+                    prune.l1_unstructured(param, name, amount=int(amount))
                 self.eita *= self.alpha
                 self.model = self.global_model
                 self.prune_rates.append(prune_rate)
@@ -103,12 +111,20 @@ class Client():
 
                 self.prune_rates.append(self.cur_prune_rate)
             else:
-                l1_prune(model=self.global_model,
-                         amount=prune_rate,
-                         name='weight',
-                         verbose=False)
-
+                # reprune by the downloaded global-model(not important)
+                params_to_prune = get_prune_params(self.global_model)
+                for param, name in params_to_prune:
+                    amount = torch.eq(getattr(param, name), 0.00).sum().float()
+                    prune.l1_unstructured(param, name, amount=int(amount))
                 self.prune_rates.append(prune_rate)
+
+            # FIXME: should there be a reinit ?
+            # reinitialize model with init_params
+            # source_params = dict(self.global_init_model.named_parameters())
+            # for name, param in self.global_model.named_parameters():
+            #     # REVIEW: remove bias reinitialization
+            #     if 'bias' not in name:
+            #         param.data.copy_(source_params[name].data)
             self.model = self.global_model
 
         print(f"\nTraining local model")
@@ -129,9 +145,7 @@ class Client():
             else:
                 wandb.log({f"{self.idx}_{key}": thing})
 
-        if (self.elapsed_comm_rounds+1) % self.args.save_freq == 0:
-            self.save(self.model)
-
+        self.save(self.model)
         self.elapsed_comm_rounds += 1
 
     def train(self, round_index):
@@ -191,8 +205,9 @@ class Client():
         self.accuracies.append(eval_score['Accuracy'][0])
         return eval_score
 
-    def save(self, *args, **kwargs):
-        pass
+    def save(self, model, **kwargs):
+        torch.save(model.state_dict(),
+                   f"./checkpoints/c{self.idx}_model_{self.elapsed_comm_rounds}")
 
     def upload(self, *args, **kwargs) -> Dict[nn.Module, float]:
         """
