@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_mode', type=str,
                         default='non-iid', help='non-iid|iid')
     parser.add_argument('--rate_unbalance', type=float, default=1.0)
-    parser.add_argument('--num_clients', type=int, default=5)
+    parser.add_argument('--n_clients', type=int, default=5)
     parser.add_argument('--rounds', type=int, default=50)
     parser.add_argument('--prune_step', type=float, default=0.2)
     parser.add_argument('--prune_threshold', type=float, default=0.6)
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--n_samples', type=int, default=20)
-    parser.add_argument('--n_class', type=int, default=2)
+    parser.add_argument('--n_classes', type=int, default=2)
     parser.add_argument('--eita', type=float, default=0.5,
                         help="accuracy threshold")
     parser.add_argument('--alpha', type=float, default=0.5,
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=40)
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--fast_dev_run', type=bool, default=False)
-    parser.add_argument('--num_workers', type=int, default=0)
+    parser.add_argument('--n_workers', type=int, default=0)
     parser.add_argument('--exp_name', type=str, default='Experiment')
 
     args = parser.parse_args()
@@ -69,16 +69,16 @@ if __name__ == "__main__":
     model = create_model(cls=models[args.dataset]
                          [args.arch], device=args.device)
 
-    train_loaders, test_loaders, class_idxs = DataLoaders(num_users=args.num_clients,
+    train_loaders, test_loaders, class_idxs = DataLoaders(num_users=args.n_clients,
                                                           dataset_name=args.dataset,
-                                                          n_class=args.n_class,
+                                                          n_class=args.n_classes,
                                                           nsamples=args.n_samples,
                                                           mode=args.dataset_mode,
                                                           batch_size=args.batch_size,
                                                           rate_unbalance=args.rate_unbalance,
-                                                          num_workers=args.num_workers)
+                                                          num_workers=args.n_workers)
     clients = []
-    for i in range(args.num_clients):
+    for i in range(args.n_clients):
         client = Client(
             i, args, train_loaders[i], test_loaders[i], class_idxs[i])
         clients.append(client)
