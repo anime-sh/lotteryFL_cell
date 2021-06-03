@@ -119,7 +119,6 @@ def train(
     outputs = metrics.compute()
     metrics.reset()
     outputs = {k: [v.item()] for k, v in outputs.items()}
-    torch.set_grad_enabled(False)
     outputs['Loss'] = [sum(losses) / len(losses)]
     if verbose:
         print(tabulate(outputs, headers='keys', tablefmt='github'))
@@ -301,9 +300,8 @@ def l1_prune(model, amount=0.00, name='weight', verbose=False, glob=False):
         for params, name in params_to_prune:
             prune.l1_unstructured(params, name, amount)
     if verbose:
-        info, _, _ = get_prune_summary(model, name)
-        global_pruning = info['global']
-        info.pop('global')
+        info, num_zeros, num_global = get_prune_summary(model, name)
+        global_pruning = num_zeros / num_global
         print(tabulate(info, headers='keys', tablefmt='github'))
         print("Total Pruning: {}%".format(global_pruning))
 
@@ -363,7 +361,6 @@ def get_prune_summary(model, name='weight') -> List[Union[Union[Dict[str, Union[
 
     global_prune_percent = num_global_zeros / num_global_weights
 
-    prune_stat['global'] = global_prune_percent
     return prune_stat, num_global_zeros, num_global_weights
 
 
