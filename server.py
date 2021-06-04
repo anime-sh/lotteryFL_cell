@@ -50,9 +50,7 @@ class Server():
             device=self.args.device
         )
         pruned_summary, _, _ = get_prune_summary(aggr_model, name='weight')
-        pruned_percent = pruned_summary['global']
-        # pruned by the earlier zeros in the model
-        l1_prune(aggr_model, amount=pruned_percent, name='weight', verbose=True)
+        print(tabulate(pruned_summary, headers='keys', tablefmt='github'))
 
         return aggr_model
 
@@ -75,6 +73,7 @@ class Server():
         if (self.args.server_prune == True and
                 (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0):
             # prune the model using super_mask
+            # TODO should the pruning happen on top of it or towards a threshold \
             super_prune(
                 model=self.model,
                 init_model=self.init_model,
@@ -111,13 +110,18 @@ class Server():
         wandb.log({"client_avg_acc": avg_accuracy})
         wandb.log({"comm_round": self.elapsed_comm_rounds})
 
-        # compute average-model
+        # compute average-model and (prune it by 0.00 )
         aggr_model = self.aggr(models, clients)
+        l1_prune(aggr_model, amount=0.00, name='weight')
 
         # copy aggregated-model's params to self.model (keep buffer same)
         source_params = dict(aggr_model.named_parameters())
         for name, param in self.model.named_parameters():
-            param.data.copy_(source_params[name])
+            param.data.copy_(source_params[name].data)
+
+        print('Saving global model')
+        torch.save(self.model.state_dict(),
+                   f"./checkpoints/server_model_{self.elapsed_comm_rounds}.pt")
 
     def download(
         self,
