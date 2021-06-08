@@ -84,9 +84,7 @@ class Client():
                 # reinitialize model with init_params
                 source_params = dict(self.global_init_model.named_parameters())
                 for name, param in self.global_model.named_parameters():
-                    # REVIEW: remove bias reinitialization
-                    if 'bias' not in name:
-                        param.data.copy_(source_params[name].data)
+                    param.data.copy_(source_params[name].data)
 
                 self.model = self.global_model
                 self.eita = self.eita_hat

@@ -61,6 +61,11 @@ if __name__ == "__main__":
     parser.add_argument('--fast_dev_run', type=bool, default=False)
     parser.add_argument('--n_workers', type=int, default=0)
     parser.add_argument('--exp_name', type=str, default='Experiment')
+    parser.add_argument('--reinit_method', type=str,
+                        default='none', help='none|std_dev|init_weights')
+    parser.add_argument('--prune_method', type=str, default='l1',
+                        help='l1|old_super_mask|new_super_mask|mix_l1_super_mask')
+    parser.add_argument('--server_prune_threshold', type=float, default=0.8)
 
     args = parser.parse_args()
 

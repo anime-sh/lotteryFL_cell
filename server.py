@@ -29,6 +29,7 @@ class Server():
         self.args = args
         self.model = model
         self.init_model = copy_model(model, self.args.device)
+        self.prev_model = copy_model(model, self.args.device)
 
         self.elapsed_comm_rounds = 0
         self.curr_prune_step = 0.00
@@ -52,6 +53,12 @@ class Server():
         pruned_summary, _, _ = get_prune_summary(aggr_model, name='weight')
         print(tabulate(pruned_summary, headers='keys', tablefmt='github'))
 
+        prune_params = get_prune_params(aggr_model)
+        for param, name in prune_params:
+            zeroed_weights = torch.eq(
+                getattr(param, name).data, 0.00).sum().float()
+            prune.l1_unstructured(param, name, int(zeroed_weights))
+
         return aggr_model
 
     def update(
@@ -63,28 +70,24 @@ class Server():
             Interface to server and clients
         """
         self.elapsed_comm_rounds += 1
+        self.prev_model = copy_model(self.model, self.args.device)
         print('-----------------------------', flush=True)
         print(
             f'| Communication Round: {self.elapsed_comm_rounds}  | ', flush=True)
         print('-----------------------------', flush=True)
+        _, num_pruned, num_total = get_prune_summary(self.model)
 
+        prune_percent = num_pruned / num_total
         # global_model pruned at fixed freq
         # with a fixed pruning step
         if (self.args.server_prune == True and
-                (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0):
+            (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0) and \
+                (prune_percent < self.args.server_prune_threshold):
+                
             # prune the model using super_mask
-            # TODO should the pruning happen on top of it or towards a threshold \
-            super_prune(
-                model=self.model,
-                init_model=self.init_model,
-                amount=self.args.server_prune_step,
-                name='weight'
-            )
+            self.prune()
             # reinitialize model with std.dev of init_model
-            source_params = dict(self.init_model.named_parameters())
-            for name, param in self.model.named_parameters():
-                std_dev = torch.std(source_params[name].data)
-                param.data.copy_(std_dev*torch.sign(source_params[name].data))
+            self.reinit()
 
         client_idxs = np.random.choice(
             self.num_clients, int(
@@ -112,16 +115,61 @@ class Server():
 
         # compute average-model and (prune it by 0.00 )
         aggr_model = self.aggr(models, clients)
-        l1_prune(aggr_model, amount=0.00, name='weight')
 
         # copy aggregated-model's params to self.model (keep buffer same)
-        source_params = dict(aggr_model.named_parameters())
-        for name, param in self.model.named_parameters():
-            param.data.copy_(source_params[name].data)
+        self.model = aggr_model
 
         print('Saving global model')
         torch.save(self.model.state_dict(),
                    f"./checkpoints/server_model_{self.elapsed_comm_rounds}.pt")
+
+    def prune(self):
+        if self.args.prune_method == 'l1':
+            l1_prune(model=self.model,
+                     amount=self.args.server_prune_step,
+                     name='weight',
+                     verbose=self.args.prune_verbose,
+                     glob=False)
+        elif self.args.prune_method == 'old_super_mask':
+            super_prune(model=self.model,
+                        init_model=self.init_model,
+                        amount=self.args.server_prune_step,
+                        name='weight',
+                        verbose=self.args.prune_verbose)
+        elif self.args.prune_method == 'new_super_mask':
+            super_prune(model=self.model,
+                        init_model=self.prev_model,
+                        amount=self.args.server_prune_step,
+                        name='weight',
+                        verbose=self.args.prune_verbose)
+        elif self.args.prune_method == 'mix_l1_super_mask':
+            if self.elapsed_comm_rounds == self.server_prune_freq:
+                super_prune(model=self.model,
+                            init_model=self.init_model,
+                            amount=self.args.server_prune_step,
+                            name='weight',
+                            verbose=self.args.prune_verbose)
+            else:
+                l1_prune(model=self.model,
+                         amount=self.args.server_prune_step,
+                         name='weight',
+                         verbose=self.args.prune_verbose,
+                         glob=False)
+
+    def reinit(self):
+        if self.args.reinit_method == 'none':
+            return
+
+        elif self.args.reinit_method == 'std_dev':
+            source_params = dict(self.init_model.named_parameters())
+            for name, param in self.model.named_parameters():
+                std_dev = torch.std(source_params[name].data)
+                param.data.copy_(std_dev*torch.sign(source_params[name].data))
+
+        elif self.args.reinit_method == 'init_weights':
+            source_params = dict(self.init_model.named_parameters())
+            for name, param in self.model.named_parameters():
+                param.data.copy_(source_params[name].data)
 
     def download(
         self,
