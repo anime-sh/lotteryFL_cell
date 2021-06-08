@@ -445,7 +445,8 @@ def super_prune(
     model: nn.Module,
     init_model: nn.Module,
     amount: float = 0.0,
-    name: str = 'weight'
+    name: str = 'weight',
+    verbose=False
 ) -> None:
     """
 
@@ -465,3 +466,9 @@ def super_prune(
             customPrune(param, sliced_params, amount, name)
         else:
             customPrune(param, orig_params, amount, name)
+
+    if verbose:
+        info, num_zeros, num_global = get_prune_summary(model, name)
+        global_pruning = num_zeros / num_global
+        print(tabulate(info, headers='keys', tablefmt='github'))
+        print("Total Pruning: {}%".format(global_pruning))
