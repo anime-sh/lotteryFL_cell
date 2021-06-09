@@ -17,4 +17,4 @@ class MLP(nn.Module):
     def forward(self, x):
         x = torch.flatten(x, 1)
         out = self.classifier(x)
-        return F.softmax(out, dim=1)
+        return out

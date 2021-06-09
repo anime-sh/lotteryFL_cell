@@ -23,4 +23,4 @@ class MLP(nn.Module):
         out = self.linear4(out)
         out = F.relu(out)
         out = self.linear5(out)
-        return F.softmax(out)
+        return out
