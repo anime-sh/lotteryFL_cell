@@ -70,6 +70,11 @@ class Client():
                              amount=self.cur_prune_rate,
                              name='weight',
                              verbose=self.args.prune_verbose)
+                    # reinitialize model with init_params
+                    source_params = dict(
+                        self.global_init_model.named_parameters())
+                    for name, param in self.global_model.named_parameters():
+                        param.data.copy_(source_params[name].data)
                     self.prune_rates.append(self.cur_prune_rate)
                 else:
                     # reprune by the downloaded global-model(important)
@@ -81,10 +86,6 @@ class Client():
                                           0.00).sum().float()
                         prune.l1_unstructured(param, name, amount=int(amount))
                     self.prune_rates.append(prune_rate)
-                # reinitialize model with init_params
-                source_params = dict(self.global_init_model.named_parameters())
-                for name, param in self.global_model.named_parameters():
-                    param.data.copy_(source_params[name].data)
 
                 self.model = self.global_model
                 self.eita = self.eita_hat
@@ -106,7 +107,9 @@ class Client():
                          amount=self.cur_prune_rate,
                          name='weight',
                          verbose=self.args.prune_verbose)
-
+                source_params = dict(self.global_init_model.named_parameters())
+                for name, param in self.global_model.named_parameters():
+                    param.data.copy_(source_params[name].data)
                 self.prune_rates.append(self.cur_prune_rate)
             else:
                 # reprune by the downloaded global-model(not important)
@@ -116,13 +119,6 @@ class Client():
                     prune.l1_unstructured(param, name, amount=int(amount))
                 self.prune_rates.append(prune_rate)
 
-            # FIXME: should there be a reinit ?
-            # reinitialize model with init_params
-            # source_params = dict(self.global_init_model.named_parameters())
-            # for name, param in self.global_model.named_parameters():
-            #     # REVIEW: remove bias reinitialization
-            #     if 'bias' not in name:
-            #         param.data.copy_(source_params[name].data)
             self.model = self.global_model
 
         print(f"\nTraining local model")
