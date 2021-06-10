@@ -104,12 +104,11 @@ def train(
         y_hat = model(x)
         loss = F.cross_entropy(y_hat, y)
         model.zero_grad()
-
         loss.backward()
         optimizer.step()
-
+        preds = torch.argmax(y_hat, 1)
         losses.append(loss.item())
-        output = metrics(y_hat, y)
+        output = metrics(preds, y)
 
         progress_bar.set_postfix({'loss': loss.item(),
                                   'acc': output['Accuracy'].item()})
