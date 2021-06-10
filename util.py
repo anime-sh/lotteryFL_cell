@@ -106,8 +106,10 @@ def train(
         model.zero_grad()
         loss.backward()
         optimizer.step()
-        preds = torch.argmax(y_hat, 1)
+
         losses.append(loss.item())
+
+        preds = F.softmax(y_hat, 1)
         output = metrics(preds, y)
 
         progress_bar.set_postfix({'loss': loss.item(),
@@ -269,7 +271,8 @@ def test(
         y = y.to(device)
         y_hat = model(x)
 
-        output = metrics(y_hat, y)
+        preds = F.softmax(y_hat, 1)
+        output = metrics(preds, y)
 
         progress_bar.set_postfix({'acc': output['Accuracy'].item()})
         if fast_dev_run:
