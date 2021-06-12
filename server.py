@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import Module
-from util import get_prune_params, super_prune, fed_avg, l1_prune, create_model, copy_model, get_prune_summary
+from util import get_prune_params, super_prune, fed_avg, l1_prune, create_model, copy_model, get_prune_summary, voted_avg
 
 
 class Server():
@@ -45,19 +45,16 @@ class Server():
         weights_per_client = np.array(
             [client.num_data for client in clients], dtype=np.float32)
         weights_per_client /= np.sum(weights_per_client)
-        aggr_model = fed_avg(
+
+        aggr_model = voted_avg(
             models=models,
             weights=weights_per_client,
-            device=self.args.device
+            device=self.args.device,
+            threshold=self.args.vote_threshold
         )
+        l1_prune(aggr_model, amount=0.00, name='weight')
         pruned_summary, _, _ = get_prune_summary(aggr_model, name='weight')
         print(tabulate(pruned_summary, headers='keys', tablefmt='github'))
-
-        prune_params = get_prune_params(aggr_model)
-        for param, name in prune_params:
-            zeroed_weights = torch.eq(
-                getattr(param, name).data, 0.00).sum().float()
-            prune.l1_unstructured(param, name, int(zeroed_weights))
 
         return aggr_model
 
@@ -80,14 +77,14 @@ class Server():
         prune_percent = num_pruned / num_total
         # global_model pruned at fixed freq
         # with a fixed pruning step
-        if (self.args.server_prune == True and
-            (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0) and \
-                (prune_percent < self.args.server_prune_threshold):
-                
-            # prune the model using super_mask
-            self.prune()
-            # reinitialize model with std.dev of init_model
-            self.reinit()
+        # if (self.args.server_prune == True and
+        #     (self.elapsed_comm_rounds % self.args.server_prune_freq) == 0) and \
+        #         (prune_percent < self.args.server_prune_threshold):
+
+        #     # prune the model using super_mask
+        #     self.prune()
+        #     # reinitialize model with std.dev of init_model
+        #     self.reinit()
 
         client_idxs = np.random.choice(
             self.num_clients, int(

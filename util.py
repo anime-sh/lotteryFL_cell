@@ -41,6 +41,32 @@ def fed_avg(models: List[nn.Module], weights: torch.Tensor, device='cuda:0'):
     return aggr_model
 
 
+@torch.no_grad()
+def voted_avg(models: List[nn.Module], weights: torch.Tensor, device='cuda:0', threshold: float = 0.5):
+    """
+        models: list of nn.modules(unpruned/pruning removed)
+        weights: normalized weights for each model
+        cls:  Class of original model
+    """
+    aggr_model = models[0].__class__().to(device)
+    model_params = []
+    num_models = len(models)
+    for model in models:
+        model_params.append(dict(model.named_parameters()))
+
+    for name, param in aggr_model.named_parameters():
+        param.data.copy_(torch.zeros_like(param.data))
+        votes = torch.zeros_like(param.data)
+        for i in range(num_models):
+            weighted_param = torch.mul(
+                model_params[i][name].data, weights[i])
+            votes += torch.eq(weighted_param, 0.00)
+            param.data.copy_(param.data + weighted_param)
+        vote_mask = ~torch.gt(votes, threshold*num_models)
+        param.data.copy_(torch.mul(vote_mask, param.data))
+    return aggr_model
+
+
 def create_model(cls, device='cuda:0') -> nn.Module:
     """
         Returns new model pruned by 0.00 %. This is necessary to create buffer masks
@@ -474,3 +500,5 @@ def super_prune(
         global_pruning = num_zeros / num_global
         print(tabulate(info, headers='keys', tablefmt='github'))
         print("Total Pruning: {}%".format(global_pruning))
+
+# %%

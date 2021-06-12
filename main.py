@@ -66,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--prune_method', type=str, default='l1',
                         help='l1|old_super_mask|new_super_mask|mix_l1_super_mask')
     parser.add_argument('--server_prune_threshold', type=float, default=0.8)
+    parser.add_argument('--vote_threshold',type = float,default = 0.6)
 
     args = parser.parse_args()
 
