@@ -89,10 +89,12 @@ if __name__ == "__main__":
         client = Client(
             i, args, train_loaders[i], test_loaders[i], class_idxs[i])
         clients.append(client)
-
+    dirname =f"./wandb/{args.proj_name}/{args.exp_name}"
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
     wandb.login()
     wandb.init(project=args.proj_name,
-               dir=f"./wandb/{args.proj_name}/{args.exp_name}", name=args.exp_name)
+               dir=dirname, name=args.exp_name)
     wandb.config.update(args)
 
     server = Server(args, model, clients)
