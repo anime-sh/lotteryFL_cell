@@ -110,14 +110,19 @@ class Server():
         print('-----------------------------', flush=True)
         print(f'| Average Accuracy: {avg_accuracy}  | ', flush=True)
         print('-----------------------------', flush=True)
-        wandb.log({"client_avg_acc": avg_accuracy,
-                  "comm_round": self.elapsed_comm_rounds})
 
         # compute average-model and (prune it by 0.00 )
         aggr_model = self.aggr(models, clients)
 
         # copy aggregated-model's params to self.model (keep buffer same)
         self.model = aggr_model
+
+        _, num_pruned, num_total = get_prune_summary(self.model)
+        prune_percent = num_pruned / num_total
+
+        wandb.log({"client_avg_acc": avg_accuracy,
+                   "comm_round": self.elapsed_comm_rounds,
+                   "global_prune_percent": prune_percent})
 
         print('Saving global model')
         torch.save(self.model.state_dict(),
