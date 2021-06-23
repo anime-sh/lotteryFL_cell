@@ -66,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--prune_method', type=str, default='l1',
                         help='l1|old_super_mask|new_super_mask|mix_l1_super_mask')
     parser.add_argument('--server_prune_threshold', type=float, default=0.8)
+    parser.add_argument('--proj_name', type=str, default='CELL')
 
     args = parser.parse_args()
 
@@ -88,8 +89,14 @@ if __name__ == "__main__":
             i, args, train_loaders[i], test_loaders[i], class_idxs[i])
         clients.append(client)
 
+    dirname = f"./wandb/{args.proj_name}/{args.exp_name}"
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
+
     wandb.login()
-    wandb.init(project=args.exp_name)
+    wandb.init(project=args.proj_name,
+               dir=dirname,
+               name=args.exp_name)
     wandb.config.update(args)
 
     server = Server(args, model, clients)
